@@ -1,0 +1,126 @@
+.content-state {
+  border-radius: var(--radius-container);
+}
+
+.content-state--empty {
+  display: grid;
+  place-items: center;
+  min-height: 360px;
+  padding: 48px;
+  border: 1px dashed var(--border-strong);
+  background: color-mix(in srgb, var(--surface-muted) 55%, transparent);
+  text-align: center;
+}
+
+.content-state__icon {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  margin-bottom: 17px;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+  border-radius: 14px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.content-state__copy {
+  display: grid;
+  gap: 5px;
+}
+
+.content-state__copy strong {
+  font-size: 15px;
+  font-weight: 680;
+  letter-spacing: -0.01em;
+}
+
+.content-state__copy span {
+  max-width: 56ch;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.content-state--loading {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  align-items: center;
+  gap: 17px;
+  min-height: 170px;
+  padding: 30px;
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+}
+
+.skeleton-mark,
+.skeleton-lines span {
+  background: color-mix(in srgb, var(--border-strong) 62%, var(--surface));
+}
+
+.skeleton-mark {
+  width: 54px;
+  height: 54px;
+  border-radius: 14px;
+}
+
+.skeleton-lines {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 9px;
+}
+
+.skeleton-lines span {
+  display: block;
+  width: 72%;
+  height: 9px;
+  border-radius: 4px;
+}
+
+.skeleton-lines span:last-child {
+  width: 48%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton-mark,
+  .skeleton-lines span {
+    animation: skeleton-pulse 1.5s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes skeleton-pulse {
+  to {
+    opacity: 0.48;
+  }
+}
+
+.content-state--error {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, var(--border));
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.content-state--error .content-state__copy span {
+  color: color-mix(in srgb, var(--danger) 72%, var(--text));
+  font-family: ui-monospace, 'Cascadia Mono', monospace;
+  font-size: 10px;
+}
+
+@media (max-width: 560px) {
+  .content-state--empty {
+    min-height: 300px;
+    padding: 32px 20px;
+  }
+
+  .content-state--error {
+    grid-template-columns: 24px minmax(0, 1fr);
+  }
+
+  .content-state--error .button {
+    grid-column: 1 / -1;
+  }
+}

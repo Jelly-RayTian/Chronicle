@@ -1,0 +1,57 @@
+export const zhCN = {
+  app: {
+    name: 'Chronicle',
+    tagline: '在时间与上下文中，重新找到本地工作。',
+  },
+  navigation: {
+    timeline: '时间线',
+    indexedFolders: '索引文件夹',
+    settings: '设置',
+  },
+  status: {
+    system: '系统状态',
+    native: '原生连接',
+    database: '本地数据库',
+    ready: '就绪',
+    unavailable: '不可用',
+    schemaVersion: '数据库版本 {{version}}',
+  },
+  timeline: {
+    title: '时间线',
+    description: '通过工作发生的时间与上下文，重新找到本地文件。',
+    emptyTitle: '时间线已经准备好',
+    emptyBody: '目前还没有已索引的文件活动。文件夹选择和元数据扫描将在 Milestone 1 提供。',
+  },
+  folders: {
+    title: '索引文件夹',
+    description: 'Chronicle 只会索引你明确选择的文件夹。',
+    emptyTitle: '还没有索引文件夹',
+    emptyBody: 'Chronicle 尚未获得任何文件夹访问权限。清除 Chronicle 数据永远不会删除原始文件。',
+    count: '{{count}} 个文件夹',
+  },
+  settings: {
+    title: '设置',
+    description: '管理 Chronicle 的本地使用体验。',
+    language: '语言',
+    languageDescription: '选择 Chronicle 界面使用的语言。',
+    chinese: '简体中文',
+    english: 'English',
+    privacyTitle: '隐私基线',
+    localOnly: '仅保存在本机',
+    localOnlyBody: 'Chronicle 不会上传文件路径或元数据。',
+    contentsUnread: '不读取文件内容',
+    contentsUnreadBody: 'Milestone 0 只建立应用基础，不会打开你的文件。',
+    noAnalytics: '无分析追踪',
+    noAnalyticsBody: 'Chronicle 不包含行为追踪或遥测。',
+  },
+  state: {
+    loading: '正在加载本地数据',
+    loadingBody: 'Chronicle 正在连接原生服务。',
+    retry: '重试',
+  },
+  errors: {
+    unexpected: 'Chronicle 无法完成这次本地请求。',
+    databaseUnavailable: 'Chronicle 无法打开本地数据库。你的原始文件没有被修改。',
+    nativeUnavailable: 'Chronicle 无法连接原生服务。你的原始文件没有被修改。',
+  },
+} as const;
