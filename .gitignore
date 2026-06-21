@@ -1,0 +1,9 @@
+node_modules/
+dist/
+coverage/
+src-tauri/target/
+.superpowers/
+.worktrees/
+*.log
+.DS_Store
+Thumbs.db
