@@ -1,9 +1,4 @@
-import {
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useState,
-} from 'react';
+import { type ReactNode, useCallback, useEffect, useState } from 'react';
 
 import { tauriClient, toApplicationError, type TauriClient } from '../lib/tauri/client';
 import type { ApplicationInfo, DatabaseStatus, IndexedFolder, TimelinePage } from '../models';

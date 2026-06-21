@@ -7,3 +7,5 @@ src-tauri/target/
 *.log
 .DS_Store
 Thumbs.db
+*.tsbuildinfo
+src-tauri/gen/

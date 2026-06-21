@@ -92,6 +92,7 @@ Chronicle/
 ## Task 1: 工具链门禁与仓库基础
 
 **Files:**
+
 - Create: `.gitignore`
 - Create: `.prettierignore`
 - Create: `.prettierrc.json`
@@ -170,6 +171,7 @@ git -c user.name=Codex -c user.email=codex@local commit -m "chore: add repositor
 ## Task 2: 初始化 npm、Vite、React 与质量工具
 
 **Files:**
+
 - Create: `package.json`
 - Create: `package-lock.json`
 - Create: `index.html`
@@ -277,6 +279,7 @@ git -c user.name=Codex -c user.email=codex@local commit -m "build: configure Rea
 ## Task 3: 先定义 TypeScript 模型与 typed Tauri client
 
 **Files:**
+
 - Create: `src/models/index.ts`
 - Create: `src/lib/tauri/client.ts`
 - Create: `src/lib/tauri/client.test.ts`
@@ -312,14 +315,69 @@ export type Locale = 'zh-CN' | 'en';
 export type AvailabilityStatus = 'available' | 'missing' | 'unavailable';
 export type TaskStatus = 'idle' | 'running' | 'completed' | 'failed' | 'cancelled';
 
-export interface IndexedFolder { id: number; normalizedPath: string; displayName: string; addedAt: string; lastSuccessfulScanAt: string | null; monitoringEnabled: boolean; availabilityStatus: AvailabilityStatus; }
-export interface FileRecord { id: number; indexedFolderId: number; normalizedPath: string; name: string; extension: string | null; sizeBytes: number; filesystemCreatedAt: string | null; filesystemModifiedAt: string; firstIndexedAt: string; lastSeenAt: string; isPresent: boolean; }
-export interface FileEvent { id: number; fileId: number | null; indexedFolderId: number; eventType: string; detectedAt: string; filesystemTime: string | null; oldPath: string | null; newPath: string | null; confidence: number | null; eventSource: string; }
-export interface ScanRun { id: number; indexedFolderId: number; startedAt: string; completedAt: string | null; status: TaskStatus; filesSeen: number; warningCount: number; errorCount: number; }
-export interface TimelinePage { items: FileEvent[]; nextCursor: number | null; hasMore: boolean; }
-export interface ApplicationInfo { name: string; version: string; platform: string; }
-export interface DatabaseStatus { state: 'ready' | 'error'; schemaVersion: number; }
-export interface ApplicationError { code: string; messageKey: string; retryable: boolean; }
+export interface IndexedFolder {
+  id: number;
+  normalizedPath: string;
+  displayName: string;
+  addedAt: string;
+  lastSuccessfulScanAt: string | null;
+  monitoringEnabled: boolean;
+  availabilityStatus: AvailabilityStatus;
+}
+export interface FileRecord {
+  id: number;
+  indexedFolderId: number;
+  normalizedPath: string;
+  name: string;
+  extension: string | null;
+  sizeBytes: number;
+  filesystemCreatedAt: string | null;
+  filesystemModifiedAt: string;
+  firstIndexedAt: string;
+  lastSeenAt: string;
+  isPresent: boolean;
+}
+export interface FileEvent {
+  id: number;
+  fileId: number | null;
+  indexedFolderId: number;
+  eventType: string;
+  detectedAt: string;
+  filesystemTime: string | null;
+  oldPath: string | null;
+  newPath: string | null;
+  confidence: number | null;
+  eventSource: string;
+}
+export interface ScanRun {
+  id: number;
+  indexedFolderId: number;
+  startedAt: string;
+  completedAt: string | null;
+  status: TaskStatus;
+  filesSeen: number;
+  warningCount: number;
+  errorCount: number;
+}
+export interface TimelinePage {
+  items: FileEvent[];
+  nextCursor: number | null;
+  hasMore: boolean;
+}
+export interface ApplicationInfo {
+  name: string;
+  version: string;
+  platform: string;
+}
+export interface DatabaseStatus {
+  state: 'ready' | 'error';
+  schemaVersion: number;
+}
+export interface ApplicationError {
+  code: string;
+  messageKey: string;
+  retryable: boolean;
+}
 ```
 
 - [ ] **Step 4: 实现唯一 invoke 边界**
@@ -347,6 +405,7 @@ git -c user.name=Codex -c user.email=codex@local commit -m "feat: add typed Taur
 ## Task 4: 双语资源与本地语言偏好
 
 **Files:**
+
 - Create: `src/i18n/en.ts`
 - Create: `src/i18n/zh-CN.ts`
 - Create: `src/i18n/index.ts`
@@ -386,6 +445,7 @@ git -c user.name=Codex -c user.email=codex@local commit -m "feat: add Chinese an
 ## Task 5: 用测试驱动 React 应用外壳与完整状态
 
 **Files:**
+
 - Create: `src/app/App.test.tsx`
 - Create: `src/app/App.tsx`
 - Create: `src/app/AppContext.tsx`
@@ -449,6 +509,7 @@ git -c user.name=Codex -c user.email=codex@local commit -m "feat: add bilingual 
 ## Task 6: 实现原创桌面视觉系统
 
 **Files:**
+
 - Create: `src/styles/tokens.css`
 - Create: `src/styles/global.css`
 - Create: `src/components/layout/AppShell.css`
@@ -486,6 +547,7 @@ git -c user.name=Codex -c user.email=codex@local commit -m "style: create Chroni
 ## Task 7: 初始化 Tauri 2 与 Rust 模块边界
 
 **Files:**
+
 - Create: `src-tauri/Cargo.toml`
 - Create: `src-tauri/build.rs`
 - Create: `src-tauri/tauri.conf.json`
@@ -544,6 +606,7 @@ git -c user.name=Codex -c user.email=codex@local commit -m "build: initialize Ta
 ## Task 8: 用 migration 与 repository 测试驱动 SQLite
 
 **Files:**
+
 - Create: `src-tauri/migrations/V1__initial.sql`
 - Create: `src-tauri/src/database/mod.rs`
 - Create: `src-tauri/src/database/migrations.rs`
@@ -596,6 +659,7 @@ git -c user.name=Codex -c user.email=codex@local commit -m "feat: add versioned 
 ## Task 9: 实现并测试 Tauri commands
 
 **Files:**
+
 - Create: `src-tauri/src/commands/mod.rs`
 - Create: `src-tauri/src/commands/application.rs`
 - Create: `src-tauri/src/commands/database.rs`
@@ -647,6 +711,7 @@ git -c user.name=Codex -c user.email=codex@local commit -m "feat: expose Chronic
 ## Task 10: 编写项目文档
 
 **Files:**
+
 - Create: `README.md`
 - Create: `AGENTS.md`
 - Create: `CONTRIBUTING.md`
@@ -702,6 +767,7 @@ git -c user.name=Codex -c user.email=codex@local commit -m "docs: document Chron
 ## Task 11: GitHub Actions CI
 
 **Files:**
+
 - Create: `.github/workflows/ci.yml`
 
 - [ ] **Step 1: 创建 frontend job**
@@ -739,6 +805,7 @@ git -c user.name=Codex -c user.email=codex@local commit -m "ci: verify frontend 
 ## Task 12: 全量质量、运行与视觉验收
 
 **Files:**
+
 - Modify: only files required by failures found below
 - Create: `outputs/screenshots/chronicle-zh-light.png`
 - Create: `outputs/screenshots/chronicle-en-dark.png`
