@@ -1,38 +1,72 @@
-# Chronicle Agent Guide
+# AGENTS.md
 
-## Product boundary
+## Project
 
-Chronicle is a local, privacy-first desktop application. Do not turn it into a static site, cloud drive, employee-monitoring product, analytics dashboard, or AI wrapper.
+Chronicle is a production-oriented, privacy-first desktop application that indexes file metadata and activity only inside folders explicitly selected by the user. It is built with Tauri, React, TypeScript, Rust, and SQLite.
 
-## Architecture rules
+## Before changing code
 
-- React owns presentation, navigation, localization, and async UI states.
-- Only `src/lib/tauri/client.ts` may call Tauri `invoke`.
-- Rust owns database, filesystem, platform, event, and task logic.
-- Tauri command wrappers must remain thin and delegate to testable functions.
-- Use typed errors. Do not expose database paths or raw SQL errors to the UI.
-- Use versioned SQLite migrations. Never mutate production schema ad hoc.
+1. Read relevant files under `docs/`.
+2. Inspect current implementation and tests.
+3. Restate the current task.
+4. List files expected to change.
+5. Identify filesystem, database, privacy, security, and data-loss risks.
+6. Present a concise implementation plan.
 
-## Scope rules
+## Engineering rules
 
-- Do not create fake folders, events, charts, or productivity metrics.
-- Do not add non-functional production buttons.
-- Do not read file contents without a future milestone explicitly authorizing it.
-- Do not implement scanning, watching, rename detection, grouping, AI, or destructive file operations in Milestone 0.
+- Implement only the current milestone.
+- Do not begin future milestones automatically.
+- Do not rewrite unrelated working code.
+- Keep filesystem, database, analysis, and operating-system logic out of React components.
+- Keep Rust core services separate from thin Tauri command wrappers.
+- Use strict TypeScript and avoid `any`.
+- Use typed Rust errors.
+- Avoid `unwrap` and `expect` in recoverable production paths.
+- Use ordered, versioned database migrations.
+- Do not edit released migrations.
+- Do not add dependencies without explaining why.
+- Do not create fake production data or non-functional buttons.
+- Treat paths, filenames, and project contents as untrusted input.
+- Restrict native operations to explicitly authorized roots.
+- Do not upload private data or add hidden analytics.
+- Do not log file contents, source code, secrets, or tokens.
+- Use temporary directories and temporary databases in tests.
+- Never perform destructive operations against original user files.
+- Do not track keyboard activity, browser history, active windows, screenshots, or mouse movement.
+- Use neutral language and never create productivity scores.
 
-## Quality rules
+## Required checks
 
-- Use test-driven development for behavior changes.
-- Keep TypeScript strict and free of `any`.
-- Avoid `unwrap` and `expect` in recoverable Rust production paths.
-- Keep Chinese and English resource keys identical.
-- Use UTF-8 for Markdown, JSON, TOML, YAML, Rust, and TypeScript.
-- Run all frontend and Rust checks before declaring completion.
-- Run the Tauri application and visually inspect both languages and all states.
+Before declaring completion, run all applicable checks:
 
-## Visual rules
+- frontend formatting
+- frontend lint
+- TypeScript type-check
+- frontend tests
+- frontend production build
+- cargo fmt --check
+- cargo clippy
+- cargo test
+- cargo check
 
-- Keep the interface calm, original, professional, and desktop-first.
-- Do not copy Finder, Explorer, Notion, or another product.
-- Use one accent family, consistent radii, semantic tokens, Phosphor icons, and restrained motion.
-- Verify light, dark, narrow-window, loading, empty, and error states.
+Report failures and warnings honestly.
+
+## Documentation
+
+Update relevant documentation whenever architecture, database schema, privacy, security, or behavior changes. Never advertise unfinished features as complete.
+
+## Teaching requirement
+
+After each meaningful task, explain:
+
+1. What changed.
+2. End-to-end data flow.
+3. React responsibilities.
+4. Rust responsibilities.
+5. SQLite responsibilities.
+6. Important files and types.
+7. Main algorithm.
+8. One likely bug and debugging steps.
+9. One small exercise for the repository owner.
+10. Five interview questions with concise answers.
