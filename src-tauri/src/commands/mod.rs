@@ -26,7 +26,7 @@ mod tests {
             .unwrap_or_else(|error| panic!("in-memory database should open: {error}"));
         let status = get_database_status_impl(&database)
             .unwrap_or_else(|error| panic!("database status should succeed: {error:?}"));
-        assert_eq!(status.schema_version, 1);
+        assert_eq!(status.schema_version, 2);
     }
 
     #[test]

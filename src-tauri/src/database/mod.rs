@@ -1,14 +1,19 @@
 mod migrations;
 mod repository;
 
-use std::{fs, path::Path, sync::Mutex};
+use std::{
+    fs,
+    path::Path,
+    sync::{Arc, Mutex},
+};
 
 use rusqlite::Connection;
 
 use crate::errors::ChronicleError;
 
+#[derive(Clone)]
 pub struct Database {
-    pub(crate) connection: Mutex<Connection>,
+    pub(crate) connection: Arc<Mutex<Connection>>,
 }
 
 impl Database {
@@ -32,9 +37,11 @@ impl Database {
              PRAGMA busy_timeout = 5000;",
         )?;
         migrations::apply(&mut connection)?;
-        Ok(Self {
-            connection: Mutex::new(connection),
-        })
+        let database = Self {
+            connection: Arc::new(Mutex::new(connection)),
+        };
+        database.recover_interrupted_scans()?;
+        Ok(database)
     }
 }
 
@@ -75,13 +82,14 @@ mod tests {
             "files",
             "file_events",
             "scan_runs",
+            "scan_file_staging",
             "app_settings",
         ] {
             assert!(names.contains(expected), "missing table: {expected}");
         }
         drop(statement);
         drop(connection);
-        assert_eq!(database.schema_version().unwrap_or_default(), 1);
+        assert_eq!(database.schema_version().unwrap_or_default(), 2);
     }
 
     #[test]
@@ -102,5 +110,37 @@ mod tests {
         assert!(page.items.is_empty());
         assert_eq!(page.next_cursor, None);
         assert!(!page.has_more);
+    }
+
+    #[test]
+    fn reopening_marks_interrupted_scans_failed_without_a_partial_snapshot() {
+        let directory = tempfile::tempdir()
+            .unwrap_or_else(|error| panic!("temporary directory should be created: {error}"));
+        let path = directory.path().join("chronicle.sqlite3");
+        let database =
+            Database::open(&path).unwrap_or_else(|error| panic!("database should open: {error}"));
+        let root = directory.path().join("root");
+        std::fs::create_dir(&root)
+            .unwrap_or_else(|error| panic!("root should be created: {error}"));
+        let folder = crate::folders::register_folder(&database, &root.to_string_lossy())
+            .unwrap_or_else(|error| panic!("folder should register: {error}"))
+            .folder;
+        let run = database
+            .create_scan_run(folder.id)
+            .unwrap_or_else(|error| panic!("scan should start: {error}"));
+        drop(database);
+
+        let reopened =
+            Database::open(&path).unwrap_or_else(|error| panic!("database should reopen: {error}"));
+        let snapshot = reopened
+            .scan_task_snapshot(run.scan_run_id)
+            .unwrap_or_else(|error| panic!("recovered run should load: {error}"));
+        assert_eq!(snapshot.status, crate::models::TaskStatus::Failed);
+        assert!(
+            reopened
+                .list_file_records(folder.id)
+                .unwrap_or_default()
+                .is_empty()
+        );
     }
 }

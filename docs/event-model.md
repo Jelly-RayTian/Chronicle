@@ -12,4 +12,4 @@ File events are immutable observations of metadata changes.
 
 Events include detection time, optional filesystem time, old and new paths, confidence, and source. Rename and move confidence must remain explicit because filesystem APIs do not always provide stable identity.
 
-Milestone 0 defines the schema and models only. It does not watch the filesystem, scan folders, infer identity, or insert events.
+Milestone 1 scans metadata snapshots but intentionally inserts no events. Snapshot differences, including a path disappearing between successful scans, must not be translated into created, modified, or deleted events yet. Watching and identity inference remain future work.

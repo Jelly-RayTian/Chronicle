@@ -43,6 +43,7 @@ export const AppShell = ({ activePage, onNavigate, children }: AppShellProps) =>
               type="button"
               className={activePage === id ? 'navigation-item is-active' : 'navigation-item'}
               aria-current={activePage === id ? 'page' : undefined}
+              aria-label={t(pageTranslationKey[id])}
               onClick={() => onNavigate(id)}
             >
               <Icon size={20} weight={activePage === id ? 'fill' : 'regular'} aria-hidden="true" />

@@ -10,15 +10,15 @@ Chronicle uses SQLite through Rust `rusqlite`. SQLite is bundled to reduce Windo
 - Foreign keys are enabled for every connection.
 - Paths are stored normalized, but platform-specific comparison rules remain in the platform boundary.
 
-## Initial schema
+## Schema through version 2
 
-`indexed_folders` records explicitly approved roots, display name, scan time, monitoring preference, and availability.
+`indexed_folders` records explicitly approved canonical roots, a platform comparison key, display name, scan time, monitoring preference, availability reason, and last availability check.
 
-`files` records metadata and presence under one indexed folder. `(indexed_folder_id, normalized_path)` is unique.
+`files` stores only the latest successful metadata snapshot, including parent path. `(indexed_folder_id, normalized_path)` is unique.
 
 `file_events` records created, modified, deleted, renamed, or moved events with detection time, optional filesystem time and paths, confidence, and source.
 
-`scan_runs` records scan lifecycle and non-negative counters.
+`scan_runs` records scan lifecycle, non-negative counters, and a safe failure category. `scan_file_staging` contains discovery batches for one running scan.
 
 `app_settings` stores native key-value settings in future milestones. Milestone 0 creates no fake settings rows.
 
@@ -28,4 +28,8 @@ Timeline queries use descending event time and id indexes. Folder-scoped event q
 
 ## Data clearing
 
-Deleting Chronicle's database only clears Chronicle data. It must never delete original files. No destructive original-file operation exists in Milestone 0.
+Removing an indexed folder cascades only through Chronicle tables. No SQL value is used as a target for a filesystem delete, move, or rename operation.
+
+## Atomic snapshot publication
+
+Discovery batches commit only to `scan_file_staging`. After complete traversal, one transaction upserts observed metadata, removes rows absent from the new complete snapshot, updates the folder's successful-scan time, completes `scan_runs`, and clears staging. Failed, cancelled, and startup-recovered scans clear staging without changing `files`. `file_events` remains empty in Milestone 1.

@@ -6,9 +6,11 @@ Please use the repository's private security advisory feature. Do not open a pub
 
 ## Security model
 
-Chronicle stores its application database in the operating system application-data directory. The database contains only Chronicle data. Milestone 0 does not scan folders or read file contents.
+Chronicle stores its application database in the operating system application-data directory. Milestone 1 scans only explicitly selected canonical roots, reads directory entries and metadata without opening file contents, and skips symbolic links by default.
 
 The frontend receives typed, sanitized errors. Raw SQLite errors and absolute database paths stay in Rust. Chronicle does not include analytics, telemetry, cloud storage, or metadata upload.
+
+Scan commands accept a registered folder id rather than an arbitrary path. Incomplete discovery is isolated in a staging table and cannot replace the last successful snapshot.
 
 Dependencies are locked with `package-lock.json` and `Cargo.lock`. Security-sensitive dependency updates should run all tests and rebuild the installer.
 

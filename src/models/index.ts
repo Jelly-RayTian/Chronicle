@@ -1,5 +1,9 @@
 export type Locale = 'zh-CN' | 'en';
-export type AvailabilityStatus = 'available' | 'missing' | 'unavailable';
+export type AvailabilityStatus =
+  | 'available'
+  | 'missing_or_moved'
+  | 'permission_denied'
+  | 'inaccessible';
 export type TaskStatus = 'idle' | 'running' | 'completed' | 'failed' | 'cancelled';
 export type DatabaseState = 'ready' | 'error';
 
@@ -11,6 +15,20 @@ export interface IndexedFolder {
   lastSuccessfulScanAt: string | null;
   monitoringEnabled: boolean;
   availabilityStatus: AvailabilityStatus;
+  lastCheckedAt: string | null;
+}
+
+export type NestingRelationship = 'inside_existing' | 'contains_existing';
+
+export interface NestedFolderWarning {
+  existingFolderId: number;
+  existingPath: string;
+  relationship: NestingRelationship;
+}
+
+export interface FolderRegistration {
+  folder: IndexedFolder;
+  nestedWarnings: NestedFolderWarning[];
 }
 
 export interface FileRecord {
@@ -18,6 +36,7 @@ export interface FileRecord {
   indexedFolderId: number;
   normalizedPath: string;
   name: string;
+  parentPath: string;
   extension: string | null;
   sizeBytes: number;
   filesystemCreatedAt: string | null;
@@ -49,6 +68,17 @@ export interface ScanRun {
   filesSeen: number;
   warningCount: number;
   errorCount: number;
+  failureKind: string | null;
+}
+
+export interface ScanTaskSnapshot {
+  scanRunId: number;
+  indexedFolderId: number;
+  status: TaskStatus;
+  filesSeen: number;
+  warningCount: number;
+  errorCount: number;
+  cancellable: boolean;
 }
 
 export interface TimelinePage {

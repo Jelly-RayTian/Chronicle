@@ -1,11 +1,12 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
 pub enum AvailabilityStatus {
     Available,
-    Missing,
-    Unavailable,
+    MissingOrMoved,
+    PermissionDenied,
+    Inaccessible,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -35,6 +36,29 @@ pub struct IndexedFolder {
     pub last_successful_scan_at: Option<String>,
     pub monitoring_enabled: bool,
     pub availability_status: AvailabilityStatus,
+    pub last_checked_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum NestingRelationship {
+    InsideExisting,
+    ContainsExisting,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct NestedFolderWarning {
+    pub existing_folder_id: i64,
+    pub existing_path: String,
+    pub relationship: NestingRelationship,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct FolderRegistration {
+    pub folder: IndexedFolder,
+    pub nested_warnings: Vec<NestedFolderWarning>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -44,6 +68,7 @@ pub struct FileRecord {
     pub indexed_folder_id: i64,
     pub normalized_path: String,
     pub name: String,
+    pub parent_path: String,
     pub extension: Option<String>,
     pub size_bytes: i64,
     pub filesystem_created_at: Option<String>,
@@ -79,6 +104,26 @@ pub struct ScanRun {
     pub files_seen: i64,
     pub warning_count: i64,
     pub error_count: i64,
+    pub failure_kind: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoveIndexedFolderRequest {
+    pub folder_id: i64,
+    pub confirm_original_files_untouched: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ScanTaskSnapshot {
+    pub scan_run_id: i64,
+    pub indexed_folder_id: i64,
+    pub status: TaskStatus,
+    pub files_seen: u64,
+    pub warning_count: u64,
+    pub error_count: u64,
+    pub cancellable: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -146,6 +191,15 @@ impl ApplicationError {
             code: "unexpected_error".to_owned(),
             message_key: "errors.unexpected".to_owned(),
             retryable: false,
+        }
+    }
+
+    #[must_use]
+    pub fn new(code: impl Into<String>, message_key: impl Into<String>, retryable: bool) -> Self {
+        Self {
+            code: code.into(),
+            message_key: message_key.into(),
+            retryable,
         }
     }
 }

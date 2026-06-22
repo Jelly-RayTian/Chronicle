@@ -16,8 +16,6 @@ Chronicle is for individuals who work across documents, screenshots, PDFs, code,
 - No employee monitoring, analytics, cloud drive, or AI chat surface.
 - Original files remain under the user's control.
 
-## Milestone 0 acceptance
+## Milestone 1 acceptance
 
-The application installs and launches, creates a migrated local database, exposes four typed native commands, renders three bilingual pages, and handles loading, empty, and error states without fake data.
-
-Folder selection and scanning are intentionally absent.
+The application persists explicitly selected roots and performs cancellable metadata-only scans without following symbolic links or opening file contents. Only a complete scan replaces the latest snapshot. Removing an index never changes original files. Timeline events remain intentionally absent.

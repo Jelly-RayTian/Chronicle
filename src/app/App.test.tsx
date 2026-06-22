@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { i18n } from '../i18n';
 import type { TauriClient } from '../lib/tauri/client';
+import type { IndexedFolder } from '../models';
 import { App } from './App';
 
 const readyClient = (): TauriClient => ({
@@ -17,12 +18,29 @@ const readyClient = (): TauriClient => ({
     schemaVersion: 1,
   }),
   listIndexedFolders: vi.fn().mockResolvedValue([]),
+  selectIndexedFolder: vi.fn().mockResolvedValue(null),
+  registerIndexedFolder: vi.fn(),
+  removeIndexedFolder: vi.fn(),
+  startFolderScan: vi.fn(),
+  getScanTask: vi.fn(),
+  cancelFolderScan: vi.fn(),
   queryTimelinePage: vi.fn().mockResolvedValue({
     items: [],
     nextCursor: null,
     hasMore: false,
   }),
 });
+
+const folder: IndexedFolder = {
+  id: 7,
+  normalizedPath: 'C:\\Users\\Guodong\\Documents',
+  displayName: 'Documents',
+  addedAt: '2026-06-22T05:00:00.000Z',
+  lastSuccessfulScanAt: null,
+  monitoringEnabled: false,
+  availabilityStatus: 'available',
+  lastCheckedAt: '2026-06-22T05:00:00.000Z',
+};
 
 describe('Chronicle application', () => {
   beforeEach(async () => {
@@ -69,6 +87,47 @@ describe('Chronicle application', () => {
     expect(screen.getByText(/never delete your original files/i)).toBeInTheDocument();
   });
 
+  it('registers a selected folder and reports nested-root overlap', async () => {
+    const user = userEvent.setup();
+    const client = readyClient();
+    const registerIndexedFolder = vi.fn().mockResolvedValue({
+      folder,
+      nestedWarnings: [
+        {
+          existingFolderId: 3,
+          existingPath: 'C:\\Users\\Guodong',
+          relationship: 'inside_existing',
+        },
+      ],
+    });
+    client.selectIndexedFolder = vi.fn().mockResolvedValue(folder.normalizedPath);
+    client.registerIndexedFolder = registerIndexedFolder;
+    client.listIndexedFolders = vi.fn().mockResolvedValueOnce([]).mockResolvedValue([folder]);
+    render(<App client={client} />);
+    await user.click(screen.getByRole('button', { name: 'Indexed folders' }));
+    await user.click(screen.getByRole('button', { name: 'Add folder' }));
+
+    expect(await screen.findByText('Documents')).toBeInTheDocument();
+    expect(screen.getByText(/overlaps an existing indexed root/i)).toBeInTheDocument();
+    expect(registerIndexedFolder).toHaveBeenCalledWith(folder.normalizedPath);
+  });
+
+  it('requires an explicit confirmation before removing only Chronicle metadata', async () => {
+    const user = userEvent.setup();
+    const client = readyClient();
+    const removeIndexedFolder = vi.fn().mockResolvedValue(undefined);
+    client.listIndexedFolders = vi.fn().mockResolvedValue([folder]);
+    client.removeIndexedFolder = removeIndexedFolder;
+    render(<App client={client} />);
+    await user.click(screen.getByRole('button', { name: 'Indexed folders' }));
+    await user.click(await screen.findByRole('button', { name: 'Remove index' }));
+
+    expect(screen.getByRole('dialog')).toHaveTextContent(/original files and folders will remain/i);
+    expect(removeIndexedFolder).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Remove Chronicle index' }));
+    expect(removeIndexedFolder).toHaveBeenCalledWith(7);
+  });
+
   it('shows an understandable database failure without exposing details', async () => {
     const client = readyClient();
     client.getDatabaseStatus = vi.fn().mockRejectedValue({
@@ -104,6 +163,12 @@ describe('Chronicle application', () => {
       getApplicationInfo: () => pending,
       getDatabaseStatus: () => pending,
       listIndexedFolders: () => pending,
+      selectIndexedFolder: () => pending,
+      registerIndexedFolder: () => pending,
+      removeIndexedFolder: () => pending,
+      startFolderScan: () => pending,
+      getScanTask: () => pending,
+      cancelFolderScan: () => pending,
       queryTimelinePage: () => pending,
     };
 

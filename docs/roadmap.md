@@ -8,14 +8,15 @@
 - Typed status, folder-list, and timeline commands
 - Automated frontend and Rust quality gates
 
-## Proposed Milestone 1
+## Milestone 1: Folder management and metadata snapshots
 
 - Native folder selection with explicit user consent
 - One-time metadata-only scan
 - Scan progress, cancellation, warnings, and recovery
-- Real file records and created events from the initial scan
+- Real file metadata records with atomic latest-snapshot publication
+- No timeline events yet
 
-Milestone 1 should not add watching, rename detection, project grouping, full-text search, AI, startup monitoring, or destructive file operations. It is proposed only and is not implemented automatically.
+Milestone 1 does not add watching, event generation, rename detection, project grouping, full-text search, AI, startup monitoring, or destructive file operations.
 
 ## Later exploration
 

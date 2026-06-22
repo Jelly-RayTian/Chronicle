@@ -2,26 +2,29 @@
 
 Chronicle is a privacy-first desktop application for rediscovering local files through time and context. It is being built as a real Tauri application, not a website, cloud drive, employee-monitoring tool, analytics dashboard, or AI chat wrapper.
 
-## Milestone 0
+## Milestone 1
 
-The current milestone provides the production foundation:
+The current milestone adds consent-based folder indexing and metadata snapshots to the production foundation:
 
 - a Tauri 2 desktop shell with React and strict TypeScript;
 - a Rust service core behind typed Tauri commands;
 - a local SQLite database with versioned migrations;
 - Timeline, Indexed folders, and Settings views;
-- real loading, empty, and error states;
+- native folder selection, persistent indexed roots, availability states, and explicit index removal;
+- cancellable, batched Rust metadata scans that keep the last complete snapshot;
+- real loading, empty, progress, warning, cancellation, and error states;
 - Simplified Chinese and English interfaces;
 - automated frontend and Rust tests.
 
-Milestone 0 does **not** select folders, scan the filesystem, watch changes, read file contents, generate file events, group projects, or perform destructive file operations.
+Milestone 1 does **not** watch the filesystem, read file contents, hash files, infer moves or renames, generate timeline events, group projects, or perform destructive file operations.
 
 ## Privacy guarantees
 
 - Chronicle has no analytics or telemetry.
 - Chronicle has no cloud storage and does not upload paths or metadata.
-- Future scanning will be limited to folders the user explicitly selects.
-- Milestone 0 never reads file contents.
+- Scanning is limited to folders the user explicitly selects.
+- Metadata scanning never opens file contents and skips symbolic links by default.
+- Failed, cancelled, or interrupted scans preserve the last complete snapshot.
 - Clearing Chronicle data will never delete original files.
 
 See [Privacy](docs/privacy.md) and [Security](SECURITY.md).
@@ -84,4 +87,4 @@ Read [Architecture](docs/architecture.md) and [Database](docs/database.md) for d
 
 ## Project status
 
-Chronicle is at Milestone 0. The database and UI are intentionally empty on first launch because no fake folders or events are created.
+Chronicle is at Milestone 1. The database and UI are intentionally empty on first launch because no fake folders, files, or events are created.

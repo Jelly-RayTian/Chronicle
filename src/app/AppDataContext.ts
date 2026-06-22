@@ -5,6 +5,8 @@ import type {
   ApplicationInfo,
   DatabaseStatus,
   IndexedFolder,
+  FolderRegistration,
+  ScanTaskSnapshot,
   TimelinePage,
 } from '../models';
 
@@ -18,6 +20,13 @@ export interface AppData {
   databaseStatus: Loadable<DatabaseStatus>;
   indexedFolders: Loadable<IndexedFolder[]>;
   timeline: Loadable<TimelinePage>;
+  folderActionError: ApplicationError | null;
+  scans: Readonly<Record<number, ScanTaskSnapshot>>;
+  addIndexedFolder: () => Promise<FolderRegistration | null>;
+  removeIndexedFolder: (folderId: number) => Promise<boolean>;
+  startFolderScan: (folderId: number) => Promise<void>;
+  cancelFolderScan: (scanRunId: number) => Promise<void>;
+  clearFolderActionError: () => void;
   reload: () => void;
 }
 
