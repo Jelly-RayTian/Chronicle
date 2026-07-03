@@ -7,9 +7,13 @@ import type {
   DatabaseStatus,
   FolderRegistration,
   IndexedFolder,
+  FileEvent,
+  PathHistoryItem,
+  ScanRun,
   TimelinePage,
   TimelineRequest,
   ScanTaskSnapshot,
+  WatcherStatus,
 } from '../../models';
 
 export type InvokeFunction = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
@@ -25,7 +29,19 @@ export interface TauriClient {
   startFolderScan(folderId: number): Promise<ScanTaskSnapshot>;
   getScanTask(scanRunId: number): Promise<ScanTaskSnapshot>;
   cancelFolderScan(scanRunId: number): Promise<void>;
+  listMonitoringStatuses(): Promise<WatcherStatus[]>;
+  enableFolderMonitoring(folderId: number, coalescingWindowMs?: number): Promise<WatcherStatus>;
+  disableFolderMonitoring(folderId: number): Promise<WatcherStatus>;
+  pauseFolderMonitoring(folderId: number): Promise<WatcherStatus>;
+  resumeFolderMonitoring(folderId: number): Promise<WatcherStatus>;
   queryTimelinePage(request: TimelineRequest): Promise<TimelinePage>;
+  getFileEventHistory(fileId: number): Promise<FileEvent[]>;
+  getScanHistory(folderId: number): Promise<ScanRun[]>;
+  getFilePathHistory(fileId: number): Promise<PathHistoryItem[]>;
+  confirmEvent(eventId: number): Promise<void>;
+  rejectEvent(eventId: number): Promise<void>;
+  openTimelineFile(fileId: number): Promise<void>;
+  revealTimelineFile(fileId: number): Promise<void>;
 }
 
 const isApplicationError = (value: unknown): value is ApplicationError => {
@@ -80,7 +96,37 @@ export const createTauriClient = (
     invokeFunction<ScanTaskSnapshot>('start_folder_scan', { folderId }),
   getScanTask: (scanRunId) => invokeFunction<ScanTaskSnapshot>('get_scan_task', { scanRunId }),
   cancelFolderScan: (scanRunId) => invokeFunction<void>('cancel_folder_scan', { scanRunId }),
+  listMonitoringStatuses: () => invokeFunction<WatcherStatus[]>('list_monitoring_statuses'),
+  enableFolderMonitoring: (folderId, coalescingWindowMs = 750) =>
+    invokeFunction<WatcherStatus>('enable_folder_monitoring', {
+      request: { folderId, coalescingWindowMs },
+    }),
+  disableFolderMonitoring: (folderId) =>
+    invokeFunction<WatcherStatus>('disable_folder_monitoring', {
+      request: { folderId, coalescingWindowMs: null },
+    }),
+  pauseFolderMonitoring: (folderId) =>
+    invokeFunction<WatcherStatus>('pause_folder_monitoring', {
+      request: { folderId, coalescingWindowMs: null },
+    }),
+  resumeFolderMonitoring: (folderId) =>
+    invokeFunction<WatcherStatus>('resume_folder_monitoring', {
+      request: { folderId, coalescingWindowMs: null },
+    }),
   queryTimelinePage: (request) => invokeFunction<TimelinePage>('query_timeline_page', { request }),
+  getFileEventHistory: (fileId) =>
+    invokeFunction<FileEvent[]>('get_file_event_history', { request: { fileId, limit: 100 } }),
+  getScanHistory: (folderId) =>
+    invokeFunction<ScanRun[]>('get_scan_history', { request: { folderId, limit: 50 } }),
+  getFilePathHistory: (fileId) =>
+    invokeFunction<PathHistoryItem[]>('get_file_path_history', { request: { fileId, limit: 100 } }),
+  confirmEvent: (eventId) =>
+    invokeFunction<void>('confirm_event', { request: { eventId } }),
+  rejectEvent: (eventId) =>
+    invokeFunction<void>('reject_event', { request: { eventId } }),
+  openTimelineFile: (fileId) => invokeFunction<void>('open_timeline_file', { request: { fileId } }),
+  revealTimelineFile: (fileId) =>
+    invokeFunction<void>('reveal_timeline_file', { request: { fileId } }),
 });
 
 export const tauriClient = createTauriClient(invoke);

@@ -8,30 +8,62 @@ React UI
     -> thin Tauri commands
       -> Rust services
         -> SQLite persistence
-        -> task, scanner, event, and platform contracts
+        -> scanner, event, task, and platform boundaries
 ```
 
-## Frontend
+React owns presentation state, debounced filters, timeline grouping, pagination controls, and details panels. It does not enumerate files, construct SQL, infer events, or invoke operating-system processes directly. `src/lib/tauri/client.ts` is the only native invocation boundary.
 
-`src/app` owns startup state and navigation. `src/pages` renders product views. `src/components` contains layout and reusable states. `src/i18n` contains matching Chinese and English resources. `src/lib/tauri/client.ts` is the only native invocation boundary.
+Rust resolves every scan from an indexed-folder id stored in SQLite. The scanner reads directory entries and metadata inside that authorized root without following symbolic links. Database code owns staging, reconciliation, immutable event persistence, filters, histories, and transaction boundaries. Platform code validates a present path against its authorized root before an explicit open or reveal request.
 
-## Native core
+## Milestone 2 scan and reconciliation flow
 
-`src-tauri/src/commands` converts Tauri state into service calls. `folders` owns registration and removal rules. `scanner` performs metadata-only traversal, `tasks` owns in-memory cancellation tokens, `platform` owns normalization and availability checks, and `database` owns migrations, staging, and snapshot publication. `events` remains unused in Milestone 1.
+1. A thin command starts a scan by folder id.
+2. Rust reloads the canonical authorized root from SQLite and creates a `running` scan row.
+3. Traversal writes metadata to `scan_file_staging` in batches. The published `files` snapshot and `file_events` are untouched.
+4. A missing entry, unreadable directory, cancellation, or other incomplete discovery fails the run. Staging is cleared and the prior complete snapshot remains authoritative.
+5. After traversal, cancellation is checked again.
+6. `complete_scan` performs reconciliation and publication in one SQLite transaction.
+7. React polls scan status. Completion changes the timeline query generation, causing the database-backed page to refresh.
 
-## Startup data flow
+## Command boundaries
 
-Tauri resolves the platform application-data directory, opens `chronicle.sqlite3`, applies embedded migrations, marks interrupted scans failed, clears abandoned staging rows, and manages the database plus scan-task registry as application state. React requests application info, database status, indexed folders, and the empty timeline independently.
+Timeline queries accept typed filename, extension, event type, folder, UTC date bounds, current-presence, cursor, and page-size values. File and scan histories are fetched by database identifiers. Open/reveal commands accept only a file id, reload its current path and authorized root from SQLite, reject deleted, missing, non-file, symbolic-link, and escaped paths, then pass the path as a process argument without shell interpolation.
 
-## Milestone 1 scan flow
+## Invariants
 
-The native dialog returns a user-selected directory. Rust rejects traversal components, symbolic-link roots, non-directories, and exact duplicates, then stores the canonical root. A scan command accepts only the folder id and re-reads the authorized path from SQLite. A blocking worker walks regular files without opening contents or following symbolic links, writes metadata in 256-record staging batches, and exposes persisted progress for UI polling. One final transaction publishes the complete snapshot. Failure or cancellation deletes staging only.
+- Commands are thin; reconciliation and SQL remain in Rust services.
+- React contains no filesystem or database logic.
+- A scan command never accepts an arbitrary root path.
+- No incomplete scan can publish a snapshot or event. Cancellation and publication serialize on the same database connection, so a scan recorded as cancelled cannot publish.
+- Created/modified/deleted events, file presence, folder status, and scan completion commit together.
+- Rename/move detection runs inside the same transaction as publication. All path history and identity updates are atomic with the snapshot.
+- Identity resolution uses platform-specific mechanisms (Unix inode/device, metadata fingerprinting on other platforms) without reading file contents.
+- Heuristic renames are marked as likely_renamed or possible_move, never as confirmed, and are user-reviewable.
+- No hashing, content search, or future-milestone behavior is present.
 
-## Boundary invariants
+## Milestone 3 watcher flow
 
-- React contains no SQL or filesystem operations.
-- Commands contain no business rules beyond input and output boundary handling.
-- Core services can be tested without a Tauri window.
-- Absolute database paths and raw errors never cross into React.
-- Scan commands never accept an arbitrary root path.
-- No Milestone 1 code inserts `file_events`.
+Monitoring remains disabled by default for every indexed folder. When a user explicitly enables it,
+Rust starts a native `notify` watcher for that folder only. React exposes controls and status, but it
+does not receive raw filesystem paths or perform filesystem/database work.
+
+Watcher processing is best-effort:
+
+1. native raw event;
+2. authorized-root validation for every event path;
+3. normalized path key;
+4. deterministic debounce/coalescing window;
+5. metadata recheck with `symlink_metadata` without following symbolic links;
+6. created/modified/deleted classification against the current `files` row;
+7. one SQLite transaction for file-row update, immutable watcher event insert, and watcher status;
+8. typed status polling causes the timeline query to refresh.
+
+Duplicate modifies, rapid save sequences, create-then-modify bursts, common temporary files, and
+atomic replacement patterns are reduced to the final meaningful metadata observation for a path.
+If a watched folder becomes unavailable, Chronicle stops publishing watcher observations for that
+folder and preserves the last complete snapshot. Event storms move the watcher into an error state
+without manufacturing deletion events.
+
+Startup recovery for explicitly enabled monitoring folders runs the existing complete metadata scan
+before restarting watching. Manual reconciliation remains the normal "Scan metadata" action.
+Watcher history is never described as perfectly complete.

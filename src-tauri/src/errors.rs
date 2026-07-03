@@ -36,8 +36,20 @@ pub enum ChronicleError {
     ScanNotFound,
     #[error("a scan is already running for this folder")]
     ScanAlreadyRunning,
+    #[error("monitoring is already running for this folder")]
+    WatcherAlreadyRunning,
+    #[error("monitoring is not running for this folder")]
+    WatcherNotRunning,
+    #[error("filesystem watcher failed")]
+    WatcherFailed,
+    #[error("a filesystem event escaped the authorized root")]
+    UnauthorizedEventPath,
+    #[error("too many filesystem events arrived at once")]
+    EventStorm,
     #[error("the scan was cancelled")]
     Cancelled,
+    #[error("the file is deleted or no longer available")]
+    FileUnavailable,
     #[error("a numeric value exceeded the supported range")]
     NumericOverflow,
 }
@@ -80,8 +92,30 @@ impl From<ChronicleError> for ApplicationError {
             ChronicleError::ScanAlreadyRunning => {
                 ApplicationError::new("scan_already_running", "errors.scanAlreadyRunning", false)
             }
+            ChronicleError::WatcherAlreadyRunning => ApplicationError::new(
+                "watcher_already_running",
+                "errors.watcherAlreadyRunning",
+                false,
+            ),
+            ChronicleError::WatcherNotRunning => {
+                ApplicationError::new("watcher_not_running", "errors.watcherNotRunning", false)
+            }
+            ChronicleError::WatcherFailed => {
+                ApplicationError::new("watcher_failed", "errors.watcherFailed", true)
+            }
+            ChronicleError::UnauthorizedEventPath => ApplicationError::new(
+                "unauthorized_event_path",
+                "errors.unauthorizedEventPath",
+                false,
+            ),
+            ChronicleError::EventStorm => {
+                ApplicationError::new("event_storm", "errors.eventStorm", true)
+            }
             ChronicleError::Cancelled => {
                 ApplicationError::new("scan_cancelled", "errors.scanCancelled", false)
+            }
+            ChronicleError::FileUnavailable => {
+                ApplicationError::new("file_unavailable", "errors.fileUnavailable", false)
             }
             ChronicleError::PathEncoding | ChronicleError::NumericOverflow => {
                 ApplicationError::unexpected()

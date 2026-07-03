@@ -9,6 +9,7 @@ use crate::{
     },
     scanner,
     tasks::ScanTaskManager,
+    watcher::WatcherManager,
 };
 
 pub fn list_indexed_folders_impl(
@@ -35,9 +36,14 @@ pub fn register_indexed_folder(
 #[tauri::command]
 pub fn remove_indexed_folder(
     database: State<'_, Database>,
+    watcher: State<'_, WatcherManager>,
     request: RemoveIndexedFolderRequest,
 ) -> Result<(), ApplicationError> {
-    folders::remove_folder(database.inner(), request).map_err(ApplicationError::from)
+    let folder_id = request.folder_id;
+    folders::remove_folder(database.inner(), request).map_err(ApplicationError::from)?;
+    watcher
+        .stop_runtime(folder_id)
+        .map_err(ApplicationError::from)
 }
 
 #[tauri::command]
@@ -62,8 +68,12 @@ pub fn get_scan_task(
 
 #[tauri::command]
 pub fn cancel_folder_scan(
+    database: State<'_, Database>,
     tasks: State<'_, ScanTaskManager>,
     scan_run_id: i64,
 ) -> Result<(), ApplicationError> {
+    database
+        .cancel_scan(scan_run_id)
+        .map_err(ApplicationError::from)?;
     tasks.cancel(scan_run_id).map_err(ApplicationError::from)
 }

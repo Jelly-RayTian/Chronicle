@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -24,11 +24,23 @@ const readyClient = (): TauriClient => ({
   startFolderScan: vi.fn(),
   getScanTask: vi.fn(),
   cancelFolderScan: vi.fn(),
+  listMonitoringStatuses: vi.fn().mockResolvedValue([]),
+  enableFolderMonitoring: vi.fn(),
+  disableFolderMonitoring: vi.fn(),
+  pauseFolderMonitoring: vi.fn(),
+  resumeFolderMonitoring: vi.fn(),
   queryTimelinePage: vi.fn().mockResolvedValue({
     items: [],
     nextCursor: null,
     hasMore: false,
   }),
+  getFileEventHistory: vi.fn().mockResolvedValue([]),
+  getScanHistory: vi.fn().mockResolvedValue([]),
+  getFilePathHistory: vi.fn().mockResolvedValue([]),
+  confirmEvent: vi.fn(),
+  rejectEvent: vi.fn(),
+  openTimelineFile: vi.fn(),
+  revealTimelineFile: vi.fn(),
 });
 
 const folder: IndexedFolder = {
@@ -40,6 +52,21 @@ const folder: IndexedFolder = {
   monitoringEnabled: false,
   availabilityStatus: 'available',
   lastCheckedAt: '2026-06-22T05:00:00.000Z',
+};
+
+const watcherStatus = {
+  folderId: 7,
+  desiredState: 'disabled' as const,
+  runtimeState: 'stopped' as const,
+  coalescingWindowMs: 750,
+  lastStartedAt: null,
+  lastStoppedAt: null,
+  lastEventAt: null,
+  lastErrorAt: null,
+  lastErrorKind: null,
+  lastErrorMessage: null,
+  eventsRecorded: 0,
+  eventsDropped: 0,
 };
 
 describe('Chronicle application', () => {
@@ -73,7 +100,7 @@ describe('Chronicle application', () => {
   it('shows the empty timeline returned by the native client', async () => {
     render(<App client={readyClient()} />);
 
-    expect(await screen.findByText('Your timeline is ready')).toBeInTheDocument();
+    expect(await screen.findByText('No file activity yet')).toBeInTheDocument();
     expect(screen.queryByText(/sample|demo event/i)).not.toBeInTheDocument();
   });
 
@@ -128,6 +155,44 @@ describe('Chronicle application', () => {
     expect(removeIndexedFolder).toHaveBeenCalledWith(7);
   });
 
+  it('enables, pauses, resumes, and disables explicit folder monitoring', async () => {
+    const user = userEvent.setup();
+    const client = readyClient();
+    client.listIndexedFolders = vi.fn().mockResolvedValue([folder]);
+    client.listMonitoringStatuses = vi.fn().mockResolvedValue([watcherStatus]);
+    const enableFolderMonitoring = vi.fn().mockResolvedValue({
+      ...watcherStatus,
+      desiredState: 'enabled',
+      runtimeState: 'running',
+    });
+    const pauseFolderMonitoring = vi.fn().mockResolvedValue({
+      ...watcherStatus,
+      desiredState: 'paused',
+      runtimeState: 'paused',
+    });
+    const resumeFolderMonitoring = vi.fn().mockResolvedValue({
+      ...watcherStatus,
+      desiredState: 'enabled',
+      runtimeState: 'running',
+    });
+    const disableFolderMonitoring = vi.fn().mockResolvedValue(watcherStatus);
+    client.enableFolderMonitoring = enableFolderMonitoring;
+    client.pauseFolderMonitoring = pauseFolderMonitoring;
+    client.resumeFolderMonitoring = resumeFolderMonitoring;
+    client.disableFolderMonitoring = disableFolderMonitoring;
+
+    render(<App client={client} />);
+    await user.click(screen.getByRole('button', { name: 'Indexed folders' }));
+    await user.click(await screen.findByRole('button', { name: 'Enable monitoring' }));
+    expect(enableFolderMonitoring).toHaveBeenCalledWith(7);
+    await user.click(await screen.findByRole('button', { name: 'Pause' }));
+    expect(pauseFolderMonitoring).toHaveBeenCalledWith(7);
+    await user.click(await screen.findByRole('button', { name: 'Resume' }));
+    expect(resumeFolderMonitoring).toHaveBeenCalledWith(7);
+    await user.click(await screen.findByRole('button', { name: 'Disable' }));
+    expect(disableFolderMonitoring).toHaveBeenCalledWith(7);
+  });
+
   it('shows an understandable database failure without exposing details', async () => {
     const client = readyClient();
     client.getDatabaseStatus = vi.fn().mockRejectedValue({
@@ -169,12 +234,89 @@ describe('Chronicle application', () => {
       startFolderScan: () => pending,
       getScanTask: () => pending,
       cancelFolderScan: () => pending,
+      listMonitoringStatuses: () => pending,
+      enableFolderMonitoring: () => pending,
+      disableFolderMonitoring: () => pending,
+      pauseFolderMonitoring: () => pending,
+      resumeFolderMonitoring: () => pending,
       queryTimelinePage: () => pending,
+      getFileEventHistory: () => pending,
+      getScanHistory: () => pending,
+      getFilePathHistory: () => pending,
+      confirmEvent: () => pending,
+      rejectEvent: () => pending,
+      openTimelineFile: () => pending,
+      revealTimelineFile: () => pending,
     };
 
     render(<App client={client} />);
 
     expect(screen.getByText('Loading local data')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Settings' })).toBeEnabled();
+  });
+
+  it('groups real events, debounces filename search, and disables deleted file actions', async () => {
+    const user = userEvent.setup();
+    const client = readyClient();
+    const now = new Date().toISOString();
+    const deletedItem = {
+      event: {
+        id: 12,
+        fileId: 5,
+        indexedFolderId: 7,
+        eventType: 'deleted',
+        detectedAt: now,
+        filesystemTime: null,
+        oldPath: 'C:\\Work\\gone.pdf',
+        newPath: null,
+        confidence: 1,
+        eventSource: 'reconciliation',
+      },
+      file: {
+        id: 5,
+        indexedFolderId: 7,
+        normalizedPath: 'C:\\Work\\gone.pdf',
+        name: 'gone.pdf',
+        parentPath: 'C:\\Work',
+        extension: 'pdf',
+        sizeBytes: 42,
+        filesystemCreatedAt: null,
+        filesystemModifiedAt: now,
+        firstIndexedAt: now,
+        lastSeenAt: now,
+        isPresent: false,
+      },
+      folderName: 'Work',
+      folderPath: 'C:\\Work',
+    };
+    client.listIndexedFolders = vi
+      .fn()
+      .mockResolvedValue([{ ...folder, id: 7, displayName: 'Work' }]);
+    const queryTimelinePage = vi
+      .fn()
+      .mockResolvedValue({ items: [deletedItem], nextCursor: null, hasMore: false });
+    client.queryTimelinePage = queryTimelinePage;
+    client.getFileEventHistory = vi.fn().mockResolvedValue([deletedItem.event]);
+    render(<App client={client} />);
+
+    expect(await screen.findByRole('heading', { name: 'Today' })).toBeInTheDocument();
+    await user.type(screen.getByPlaceholderText('Search filenames'), 'gone');
+    await waitFor(
+      () =>
+        expect(queryTimelinePage).toHaveBeenCalledWith(
+          expect.objectContaining({ filename: 'gone' }),
+        ),
+      { timeout: 1000 },
+    );
+    await user.click(screen.getByRole('button', { name: 'Reset filters' }));
+    await waitFor(() =>
+      expect(queryTimelinePage).toHaveBeenCalledWith(expect.objectContaining({ filename: null })),
+    );
+    await user.click(screen.getByRole('button', { name: /gone\.pdf/i }));
+    expect(screen.getByRole('button', { name: 'Open file' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Show in folder' })).toBeDisabled();
+    expect(screen.getByText(/no longer present/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Event history' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Scan history' })).toBeInTheDocument();
   });
 });

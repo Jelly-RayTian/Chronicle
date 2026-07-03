@@ -19,6 +19,7 @@ tauri-build = { version = "2.6.3", features = [] }
 
 [dependencies]
 chrono = { version = "0.4", features = ["serde"] }
+notify = "8.2.0"
 rusqlite = { version = "0.40.1", features = ["bundled"] }
 rusqlite_migration = "2.6.0"
 serde = { version = "1", features = ["derive"] }
@@ -36,4 +37,3 @@ unsafe_code = "forbid"
 [lints.clippy]
 unwrap_used = "deny"
 expect_used = "deny"
-

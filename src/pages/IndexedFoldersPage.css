@@ -128,6 +128,7 @@
 }
 .folder-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
 }
@@ -136,13 +137,41 @@
   gap: 8px;
   margin: -2px 0 16px;
 }
+.monitoring-status {
+  display: grid;
+  gap: 6px;
+  margin: -2px 0 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+.monitoring-status[data-status='running'] {
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+}
+.monitoring-status[data-status='error'],
+.monitoring-status[data-status='unavailable'] {
+  border-color: color-mix(in srgb, #b74a4a 35%, var(--border));
+}
 .scan-status div {
   display: flex;
   justify-content: space-between;
   gap: 12px;
   font-size: 11px;
 }
-.scan-status span {
+.monitoring-status div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11px;
+}
+.monitoring-status p {
+  margin: 0;
+  color: #9a5f1d;
+  font-size: 11px;
+}
+.scan-status span,
+.monitoring-status span {
   color: var(--text-muted);
 }
 .scan-status progress {

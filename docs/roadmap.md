@@ -2,22 +2,33 @@
 
 ## Milestone 0: Foundation
 
-- Installable Tauri application
-- Strict bilingual React interface
-- SQLite and versioned migrations
-- Typed status, folder-list, and timeline commands
-- Automated frontend and Rust quality gates
+Installable Tauri shell, strict bilingual UI, SQLite migrations, typed status/folder/timeline boundaries, and automated quality gates.
 
 ## Milestone 1: Folder management and metadata snapshots
 
-- Native folder selection with explicit user consent
-- One-time metadata-only scan
-- Scan progress, cancellation, warnings, and recovery
-- Real file metadata records with atomic latest-snapshot publication
-- No timeline events yet
+Explicit folder consent, cancellable metadata-only traversal, atomic complete snapshots, progress/warnings/recovery, and no timeline events.
 
-Milestone 1 does not add watching, event generation, rename detection, project grouping, full-text search, AI, startup monitoring, or destructive file operations.
+## Milestone 2: Snapshot comparison and real timeline
+
+- Atomic created, modified, deleted, and unchanged reconciliation.
+- Immutable event history retained after observed deletion.
+- Complete-scan-only deletion safety and startup recovery.
+- SQLite-backed filtering, search, keyset pagination, file history, and scan history.
+- Today, Yesterday, This week, and Earlier UI groups.
+- Present-file open/reveal with deleted-file disabled states.
+
+Milestone 2 does not add watching, rename/move detection, hashing, version families, projects, sessions, content search, AI, analytics, or destructive file operations.
+
+## Milestone 3: Real-time watching and event coalescing
+
+- Explicit per-folder native filesystem monitoring, disabled by default.
+- Enable, disable, pause, resume, status, and error controls.
+- Authorized-root validation, metadata-only recheck, debounce, classification, coalescing, and transactional watcher event publication.
+- Manual/startup reconciliation for missed watcher events.
+
+Milestone 3 does not add confirmed rename/move detection, full hashing, version families, projects,
+sessions, content search, AI, hidden startup monitoring, analytics, or destructive file operations.
 
 ## Later exploration
 
-Filesystem watching, file history, rename and move confidence, version families, project grouping, activity sessions, and optional local full-text search require separate design and privacy review.
+Any identity inference, content indexing, or higher-level grouping requires a separate milestone, privacy review, and tests.

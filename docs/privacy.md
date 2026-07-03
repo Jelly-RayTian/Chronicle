@@ -1,26 +1,23 @@
 # Privacy
 
-Chronicle is local and consent-based by design.
+Chronicle is local, consent-based, and metadata-only.
 
 ## Guarantees
 
-- No analytics, behavioral tracking, or telemetry.
-- No cloud storage or metadata upload.
-- Indexing is limited to canonical roots the user explicitly selects.
-- Scans read directory entries and filesystem metadata only; they do not open file contents.
-- Symbolic links are skipped by default, and scan commands resolve roots from the authorization database rather than accepting paths.
-- Chronicle does not monitor folders automatically at startup.
-- Clearing Chronicle data never deletes original files.
-- Removing a folder index deletes only Chronicle database rows.
+- Only canonical roots explicitly selected by the user can be scanned.
+- Native monitoring is disabled by default and can only be enabled per explicitly selected folder.
+- Scan commands use a stored folder id rather than accepting arbitrary paths.
+- Scans inspect directory entries and filesystem metadata; file contents are not opened or indexed.
+- Watcher batches recheck filesystem metadata only; file contents are not opened or indexed.
+- Symbolic links are not followed.
+- No analytics, telemetry, cloud storage, metadata upload, behavior monitoring, or productivity scoring exists.
+- Cancelled, failed, interrupted, or partial scans preserve the last complete snapshot.
+- Chronicle never deletes, moves, renames, or writes original files.
+- A deletion event is only a historical observation after a complete scan; it is not a filesystem action.
+- Watcher history is best-effort and Chronicle does not claim that it captures every filesystem event.
 
-## Stored metadata
+## Stored local data
 
-Chronicle stores the file name, canonical path, parent path, extension, byte size, available creation time, modification time, first-indexed time, and last-seen time. This metadata remains local and can still be sensitive; the application does not log or upload it.
+Chronicle stores authorized root paths, filename/path/parent/extension, byte size, available creation and modification timestamps, first-indexed/last-seen times, presence, immutable file events, scan history, and explicit watcher status/error counters. This metadata can be sensitive and stays in the operating-system application-data SQLite database.
 
-## Data location
-
-The SQLite database is stored in the operating system application-data directory resolved by Tauri. The UI does not receive the absolute database path.
-
-## Future full-text search
-
-Any future content indexing must be optional, local, clearly disclosed, and separately consented. It is outside Milestone 0.
+Open and reveal are explicit user actions. The command receives only a database file id, reloads the stored path and root, and rejects deleted, escaped, symbolic-link, missing, or non-file targets before invoking the platform. Chronicle never opens anything automatically.

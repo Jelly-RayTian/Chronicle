@@ -10,6 +10,7 @@ use chrono::{DateTime, SecondsFormat, Utc};
 use crate::{
     database::Database,
     errors::ChronicleError,
+    identity,
     models::{AvailabilityStatus, ScanTaskSnapshot, TaskStatus},
     platform::{classify_io_error, path_to_string},
     tasks::ScanTaskManager,
@@ -26,13 +27,14 @@ pub struct DiscoveredFile {
     pub size_bytes: u64,
     pub filesystem_created_at: Option<String>,
     pub filesystem_modified_at: String,
+    pub identity_key: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-struct ScanCounts {
-    files_seen: u64,
-    warnings: u64,
-    errors: u64,
+pub(crate) struct ScanCounts {
+    pub(crate) files_seen: u64,
+    pub(crate) warnings: u64,
+    pub(crate) errors: u64,
 }
 
 fn system_time(value: SystemTime) -> String {
@@ -67,7 +69,10 @@ fn check_cancelled(token: &AtomicBool) -> Result<(), ChronicleError> {
     }
 }
 
-fn discovered_file(path: &Path, metadata: &fs::Metadata) -> Result<DiscoveredFile, ChronicleError> {
+pub(crate) fn discovered_file(
+    path: &Path,
+    metadata: &fs::Metadata,
+) -> Result<DiscoveredFile, ChronicleError> {
     let name = path
         .file_name()
         .and_then(|value| value.to_str())
@@ -78,6 +83,9 @@ fn discovered_file(path: &Path, metadata: &fs::Metadata) -> Result<DiscoveredFil
         .ok_or(ChronicleError::PathEncoding)
         .and_then(path_to_string)?;
     let modified = metadata.modified().map_err(classify_io_error)?;
+    let identity_key = identity::resolve_file_identity(path)
+        .ok()
+        .and_then(|id| id.as_key().map(str::to_owned));
     Ok(DiscoveredFile {
         normalized_path: path_to_string(path)?,
         name,
@@ -89,6 +97,7 @@ fn discovered_file(path: &Path, metadata: &fs::Metadata) -> Result<DiscoveredFil
         size_bytes: metadata.len(),
         filesystem_created_at: metadata.created().ok().map(system_time),
         filesystem_modified_at: system_time(modified),
+        identity_key,
     })
 }
 
@@ -111,7 +120,7 @@ fn flush_batch(
     Ok(())
 }
 
-fn traverse(
+pub(crate) fn traverse(
     database: &Database,
     scan_run_id: i64,
     folder_id: i64,
@@ -142,8 +151,7 @@ fn traverse(
             let entry = match entry_result {
                 Ok(entry) => entry,
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                    counts.warnings += 1;
-                    continue;
+                    return Err(ChronicleError::MissingOrMoved);
                 }
                 Err(error) => return Err(classify_io_error(error)),
             };
@@ -151,8 +159,7 @@ fn traverse(
             let metadata = match fs::symlink_metadata(&path) {
                 Ok(metadata) => metadata,
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                    counts.warnings += 1;
-                    continue;
+                    return Err(ChronicleError::MissingOrMoved);
                 }
                 Err(error) => return Err(classify_io_error(error)),
             };
@@ -185,6 +192,7 @@ fn traverse(
         }
     }
     flush_batch(database, scan_run_id, folder_id, &mut batch, counts)?;
+    check_cancelled(cancellation)?;
     Ok(counts)
 }
 
@@ -215,13 +223,15 @@ pub fn start_scan(
         let result = traverse(&database, run_id, folder_id, &root, &cancellation);
         match result {
             Ok(counts) => {
-                let completion = database.complete_scan(
-                    run_id,
-                    folder_id,
-                    counts.files_seen,
-                    counts.warnings,
-                    counts.errors,
-                );
+                let completion = check_cancelled(&cancellation).and_then(|()| {
+                    database.complete_scan(
+                        run_id,
+                        folder_id,
+                        counts.files_seen,
+                        counts.warnings,
+                        counts.errors,
+                    )
+                });
                 if completion.is_err() {
                     let _ = database.fail_scan(
                         run_id,
@@ -270,7 +280,7 @@ mod tests {
 
     use crate::{database::Database, folders::register_folder, models::TaskStatus};
 
-    use super::traverse;
+    use super::{discovered_file, traverse};
 
     fn setup() -> (TempDir, Database, std::path::PathBuf, i64, i64) {
         let directory = tempfile::tempdir()
@@ -384,15 +394,20 @@ mod tests {
             .is_err()
         );
         database
-            .fail_scan(
-                cancelled_run.scan_run_id,
-                TaskStatus::Cancelled,
-                "cancelled",
-                0,
-                0,
-                0,
-            )
+            .cancel_scan(cancelled_run.scan_run_id)
             .unwrap_or_else(|error| panic!("cancellation should persist: {error}"));
+        assert!(
+            database
+                .complete_scan(cancelled_run.scan_run_id, folder_id, 0, 0, 0)
+                .is_err()
+        );
+        assert_eq!(
+            database
+                .scan_task_snapshot(cancelled_run.scan_run_id)
+                .unwrap_or_else(|error| panic!("cancelled scan should load: {error}"))
+                .status,
+            TaskStatus::Cancelled
+        );
         assert_eq!(
             database.list_file_records(folder_id).unwrap_or_default(),
             before
@@ -467,7 +482,7 @@ mod tests {
     }
 
     #[test]
-    fn disappearing_files_update_only_the_snapshot_and_never_create_events() {
+    fn successful_scans_create_and_delete_while_retaining_history() {
         let (_directory, database, root, folder_id, first_run_id) = setup();
         let transient = root.join("transient.txt");
         fs::write(&transient, b"temporary")
@@ -511,6 +526,137 @@ mod tests {
                 second.errors,
             )
             .unwrap_or_else(|error| panic!("second snapshot should publish: {error}"));
+        let records = database.list_file_records(folder_id).unwrap_or_default();
+        assert_eq!(records.len(), 1);
+        assert!(!records[0].is_present);
+        let timeline = database
+            .query_timeline_page(&crate::models::TimelineRequest::first_page(50))
+            .unwrap_or_else(|error| panic!("timeline should load: {error}"));
+        assert_eq!(timeline.items.len(), 2);
+        assert_eq!(timeline.items[0].event.event_type, "deleted");
+        assert_eq!(timeline.items[1].event.event_type, "created");
+        let history = database
+            .file_event_history(records[0].id, 100)
+            .unwrap_or_else(|error| panic!("history should load: {error}"));
+        assert_eq!(history.len(), 2);
+        assert!(database.present_file_context(records[0].id).is_err());
+        let scans = database
+            .scan_history(folder_id, 10)
+            .unwrap_or_else(|error| panic!("scan history should load: {error}"));
+        assert_eq!(scans.len(), 2);
+        assert!(
+            scans
+                .iter()
+                .all(|scan| scan.status == TaskStatus::Completed)
+        );
+    }
+
+    #[test]
+    fn unchanged_rescan_creates_no_duplicate_and_multiple_changes_reconcile() {
+        let (_directory, database, root, folder_id, first_run_id) = setup();
+        fs::write(root.join("stable.txt"), b"same").unwrap_or_else(|e| panic!("{e}"));
+        fs::write(root.join("change.txt"), b"old").unwrap_or_else(|e| panic!("{e}"));
+        let first = traverse(
+            &database,
+            first_run_id,
+            folder_id,
+            &root,
+            &AtomicBool::new(false),
+        )
+        .unwrap_or_else(|e| panic!("{e}"));
+        database
+            .complete_scan(
+                first_run_id,
+                folder_id,
+                first.files_seen,
+                first.warnings,
+                first.errors,
+            )
+            .unwrap_or_else(|e| panic!("{e}"));
+
+        let unchanged_run = database
+            .create_scan_run(folder_id)
+            .unwrap_or_else(|e| panic!("{e}"));
+        let unchanged = traverse(
+            &database,
+            unchanged_run.scan_run_id,
+            folder_id,
+            &root,
+            &AtomicBool::new(false),
+        )
+        .unwrap_or_else(|e| panic!("{e}"));
+        database
+            .complete_scan(
+                unchanged_run.scan_run_id,
+                folder_id,
+                unchanged.files_seen,
+                unchanged.warnings,
+                unchanged.errors,
+            )
+            .unwrap_or_else(|e| panic!("{e}"));
+        assert_eq!(
+            database
+                .query_timeline_page(&crate::models::TimelineRequest::first_page(50))
+                .unwrap_or_else(|e| panic!("{e}"))
+                .items
+                .len(),
+            2
+        );
+
+        fs::write(root.join("change.txt"), b"new and larger").unwrap_or_else(|e| panic!("{e}"));
+        fs::remove_file(root.join("stable.txt")).unwrap_or_else(|e| panic!("{e}"));
+        fs::write(root.join("created.md"), b"new").unwrap_or_else(|e| panic!("{e}"));
+        let run = database
+            .create_scan_run(folder_id)
+            .unwrap_or_else(|e| panic!("{e}"));
+        let counts = traverse(
+            &database,
+            run.scan_run_id,
+            folder_id,
+            &root,
+            &AtomicBool::new(false),
+        )
+        .unwrap_or_else(|e| panic!("{e}"));
+        database
+            .complete_scan(
+                run.scan_run_id,
+                folder_id,
+                counts.files_seen,
+                counts.warnings,
+                counts.errors,
+            )
+            .unwrap_or_else(|e| panic!("{e}"));
+        let page = database
+            .query_timeline_page(&crate::models::TimelineRequest::first_page(50))
+            .unwrap_or_else(|e| panic!("{e}"));
+        let kinds = page
+            .items
+            .iter()
+            .take(3)
+            .map(|item| item.event.event_type.as_str())
+            .collect::<Vec<_>>();
+        assert!(kinds.contains(&"created"));
+        assert!(kinds.contains(&"modified"));
+        assert!(kinds.contains(&"deleted"));
+    }
+
+    #[test]
+    fn partial_publication_mismatch_rolls_back_snapshot_and_events() {
+        let (_directory, database, root, folder_id, run_id) = setup();
+        fs::write(root.join("only.txt"), b"one").unwrap_or_else(|error| panic!("{error}"));
+        let counts = traverse(&database, run_id, folder_id, &root, &AtomicBool::new(false))
+            .unwrap_or_else(|error| panic!("{error}"));
+        assert!(
+            database
+                .complete_scan(
+                    run_id,
+                    folder_id,
+                    counts.files_seen + 1,
+                    counts.warnings,
+                    counts.errors
+                )
+                .is_err()
+        );
         assert!(
             database
                 .list_file_records(folder_id)
@@ -519,10 +665,123 @@ mod tests {
         );
         assert!(
             database
-                .query_timeline_page(None, 50)
-                .unwrap_or_else(|error| panic!("timeline should load: {error}"))
+                .query_timeline_page(&crate::models::TimelineRequest::first_page(50))
+                .unwrap_or_else(|error| panic!("{error}"))
                 .items
                 .is_empty()
+        );
+    }
+
+    #[test]
+    fn timeline_paginates_and_filters_in_sqlite() {
+        let (_directory, database, root, folder_id, run_id) = setup();
+        fs::write(root.join("alpha.pdf"), b"pdf").unwrap_or_else(|error| panic!("{error}"));
+        fs::write(root.join("beta.txt"), b"text").unwrap_or_else(|error| panic!("{error}"));
+        let counts = traverse(&database, run_id, folder_id, &root, &AtomicBool::new(false))
+            .unwrap_or_else(|error| panic!("{error}"));
+        database
+            .complete_scan(
+                run_id,
+                folder_id,
+                counts.files_seen,
+                counts.warnings,
+                counts.errors,
+            )
+            .unwrap_or_else(|error| panic!("{error}"));
+
+        let mut paged = crate::models::TimelineRequest::first_page(1);
+        let first = database
+            .query_timeline_page(&paged)
+            .unwrap_or_else(|error| panic!("{error}"));
+        assert_eq!(first.items.len(), 1);
+        assert!(first.has_more);
+        paged.cursor = first.next_cursor;
+        let second = database
+            .query_timeline_page(&paged)
+            .unwrap_or_else(|error| panic!("{error}"));
+        assert_eq!(second.items.len(), 1);
+        assert_ne!(first.items[0].event.id, second.items[0].event.id);
+
+        let mut filtered = crate::models::TimelineRequest::first_page(50);
+        filtered.filename = Some("alpha".to_owned());
+        filtered.extension = Some(".PDF".to_owned());
+        filtered.event_type = Some("created".to_owned());
+        filtered.folder_id = Some(folder_id);
+        filtered.presence = Some(crate::models::PresenceFilter::Present);
+        filtered.date_from = Some("2000-01-01T00:00:00.000Z".to_owned());
+        filtered.date_to = Some("2100-01-01T00:00:00.000Z".to_owned());
+        let result = database
+            .query_timeline_page(&filtered)
+            .unwrap_or_else(|error| panic!("{error}"));
+        assert_eq!(result.items.len(), 1);
+        assert_eq!(result.items[0].file.name, "alpha.pdf");
+    }
+
+    #[test]
+    fn file_disappearing_during_a_partial_scan_preserves_the_complete_snapshot() {
+        let (_directory, database, root, folder_id, first_run_id) = setup();
+        let stable_path = root.join("stable.txt");
+        let disappearing_path = root.join("disappearing.txt");
+        fs::write(&stable_path, b"stable").unwrap_or_else(|error| panic!("{error}"));
+        fs::write(&disappearing_path, b"present").unwrap_or_else(|error| panic!("{error}"));
+        let first = traverse(
+            &database,
+            first_run_id,
+            folder_id,
+            &root,
+            &AtomicBool::new(false),
+        )
+        .unwrap_or_else(|error| panic!("{error}"));
+        database
+            .complete_scan(
+                first_run_id,
+                folder_id,
+                first.files_seen,
+                first.warnings,
+                first.errors,
+            )
+            .unwrap_or_else(|error| panic!("{error}"));
+        let before = database
+            .list_file_records(folder_id)
+            .unwrap_or_else(|error| panic!("{error}"));
+        let before_events = database
+            .query_timeline_page(&crate::models::TimelineRequest::first_page(50))
+            .unwrap_or_else(|error| panic!("{error}"))
+            .items
+            .len();
+
+        let run = database
+            .create_scan_run(folder_id)
+            .unwrap_or_else(|error| panic!("{error}"));
+        let metadata = fs::symlink_metadata(&stable_path).unwrap_or_else(|error| panic!("{error}"));
+        let staged =
+            discovered_file(&stable_path, &metadata).unwrap_or_else(|error| panic!("{error}"));
+        database
+            .stage_scan_batch(run.scan_run_id, folder_id, &[staged], 1, 0, 0)
+            .unwrap_or_else(|error| panic!("{error}"));
+        fs::remove_file(&disappearing_path).unwrap_or_else(|error| panic!("{error}"));
+        database
+            .fail_scan(
+                run.scan_run_id,
+                TaskStatus::Failed,
+                "missing_or_moved",
+                1,
+                0,
+                1,
+            )
+            .unwrap_or_else(|error| panic!("{error}"));
+
+        assert_eq!(
+            database.list_file_records(folder_id).unwrap_or_default(),
+            before
+        );
+        assert_eq!(
+            database
+                .query_timeline_page(&crate::models::TimelineRequest::first_page(50))
+                .unwrap_or_else(|error| panic!("{error}"))
+                .items
+                .len(),
+            before_events
         );
     }
 }

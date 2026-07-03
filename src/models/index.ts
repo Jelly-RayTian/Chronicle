@@ -5,6 +5,8 @@ export type AvailabilityStatus =
   | 'permission_denied'
   | 'inaccessible';
 export type TaskStatus = 'idle' | 'running' | 'completed' | 'failed' | 'cancelled';
+export type WatcherDesiredState = 'disabled' | 'enabled' | 'paused';
+export type WatcherRuntimeState = 'stopped' | 'running' | 'paused' | 'unavailable' | 'error';
 export type DatabaseState = 'ready' | 'error';
 
 export interface IndexedFolder {
@@ -57,6 +59,28 @@ export interface FileEvent {
   newPath: string | null;
   confidence: number | null;
   eventSource: string;
+  userConfirmation: string | null;
+  userConfirmedAt: string | null;
+}
+
+export interface PathHistoryItem {
+  id: number;
+  fileId: number;
+  oldPath: string;
+  newPath: string;
+  validFrom: string;
+  validUntil: string | null;
+  confidence: number;
+  evidence: string;
+  eventSource: string;
+  detectedAt: string;
+}
+
+export interface TimelineItem {
+  event: FileEvent;
+  file: FileRecord;
+  folderName: string;
+  folderPath: string;
 }
 
 export interface ScanRun {
@@ -81,8 +105,23 @@ export interface ScanTaskSnapshot {
   cancellable: boolean;
 }
 
+export interface WatcherStatus {
+  folderId: number;
+  desiredState: WatcherDesiredState;
+  runtimeState: WatcherRuntimeState;
+  coalescingWindowMs: number;
+  lastStartedAt: string | null;
+  lastStoppedAt: string | null;
+  lastEventAt: string | null;
+  lastErrorAt: string | null;
+  lastErrorKind: string | null;
+  lastErrorMessage: string | null;
+  eventsRecorded: number;
+  eventsDropped: number;
+}
+
 export interface TimelinePage {
-  items: FileEvent[];
+  items: TimelineItem[];
   nextCursor: number | null;
   hasMore: boolean;
 }
@@ -90,6 +129,22 @@ export interface TimelinePage {
 export interface TimelineRequest {
   cursor: number | null;
   pageSize: number;
+  filename: string | null;
+  extension: string | null;
+  eventType: 'created' | 'modified' | 'deleted' | 'renamed' | 'moved' | 'likely_renamed' | 'possible_move' | null;
+  folderId: number | null;
+  dateFrom: string | null;
+  dateTo: string | null;
+  presence: 'present' | 'deleted' | null;
+}
+
+export interface PathHistoryRequest {
+  fileId: number;
+  limit: number;
+}
+
+export interface ConfirmEventRequest {
+  eventId: number;
 }
 
 export interface ApplicationInfo {

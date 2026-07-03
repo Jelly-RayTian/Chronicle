@@ -2,28 +2,40 @@
 
 ## Frontend
 
-Vitest and React Testing Library verify application rendering, navigation, real empty states, folder selection/registration, nested warnings, explicit removal confirmation, understandable failures, typed commands, and synchronized Chinese/English resources.
+Vitest and React Testing Library cover typed command payloads, bilingual resource parity, navigation, loading/error/empty states, folder workflows, explicit monitoring controls, real timeline grouping, 300 ms debounced filename search, and deleted-file details with disabled open/reveal actions.
 
 ```powershell
 npm test
 ```
 
-Native calls are mocked only at the typed client boundary. Components do not fabricate folders or events.
+Native behavior is mocked only at the typed Tauri client boundary. Timeline data is never fabricated in production components.
 
 ## Rust
 
-Rust tests use temporary SQLite databases and directories. They verify migration and restart recovery, registration persistence, duplicates, nesting, traversal rejection, missing roots, metadata collection, empty and nested folders, symbolic-link skipping, cancellation and failed-scan safety, disappearing paths without events, and index removal without touching originals.
+Rust tests use temporary directories and SQLite databases. Coverage includes:
+
+- first scan created events and an unchanged second scan with no duplicates;
+- created, modified, deleted, and multiple simultaneous changes;
+- successful deletion with retained file rows and history;
+- cancelled and failed scans preserving the last complete snapshot;
+- startup recovery of interrupted scans;
+- missing roots and partial staged-count mismatch rollback;
+- symbolic-link skipping and original-file non-mutation;
+- SQLite keyset pagination plus filename, extension, event type, folder, date, and presence filters.
+- watcher control-state persistence, authorized-root rejection, duplicate modify coalescing,
+  create-then-modify and temporary-file patterns, folder removal while watching, startup
+  reconciliation after missed events, event-storm error state, and watcher transaction rollback.
 
 ```powershell
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
-Tests must never open a user's production Chronicle database.
+Tests never use a production Chronicle database or modify files outside temporary fixtures.
 
 ## Visual verification
 
-Launch `npm run tauri dev`. Inspect Timeline, Indexed folders, and Settings in Simplified Chinese and English. Verify native folder selection, registration, scan progress/cancellation, explicit removal confirmation, light and dark themes, normal and narrow windows, keyboard focus, empty and error states. Save screenshots for delivery evidence.
+Run `npm run tauri dev` and verify Timeline, Indexed folders, and Settings in English and Simplified Chinese. Inspect normal and narrow windows, light/dark themes, active filters, pagination, detail drawer, present/deleted actions, monitoring enable/pause/resume/disable states, long paths, keyboard focus, and empty/error states. A visual claim requires a current screenshot or direct inspection.
 
 ## Continuous integration
 
-GitHub Actions runs formatting, lint, TypeScript, frontend tests, production frontend build, Rust formatting, clippy, tests, and check on Windows.
+CI runs frontend formatting, lint, TypeScript, tests, production build, Rust formatting, Clippy with warnings denied, tests, and check on Windows.

@@ -2,28 +2,32 @@
 
 Chronicle is a privacy-first desktop application for rediscovering local files through time and context. It is being built as a real Tauri application, not a website, cloud drive, employee-monitoring tool, analytics dashboard, or AI chat wrapper.
 
-## Milestone 1
+## Milestone 3
 
-The current milestone adds consent-based folder indexing and metadata snapshots to the production foundation:
+The current milestone adds opt-in real-time monitoring on top of transactional snapshot reconciliation and a real local timeline:
 
 - a Tauri 2 desktop shell with React and strict TypeScript;
 - a Rust service core behind typed Tauri commands;
 - a local SQLite database with versioned migrations;
-- Timeline, Indexed folders, and Settings views;
+- a database-backed Timeline with grouping, search, filters, pagination, details, and histories;
 - native folder selection, persistent indexed roots, availability states, and explicit index removal;
-- cancellable, batched Rust metadata scans that keep the last complete snapshot;
+- cancellable, batched Rust metadata scans with atomic created, modified, deleted, and unchanged reconciliation;
+- explicitly enabled native filesystem monitoring with debounce, metadata recheck, event coalescing, and status/error controls;
+- manual and startup reconciliation scans for missed watcher events;
 - real loading, empty, progress, warning, cancellation, and error states;
 - Simplified Chinese and English interfaces;
 - automated frontend and Rust tests.
 
-Milestone 1 does **not** watch the filesystem, read file contents, hash files, infer moves or renames, generate timeline events, group projects, or perform destructive file operations.
+Milestone 3 does **not** read file contents, hash files, confirm moves or renames, group projects/sessions, add AI, monitor hidden folders, or perform destructive file operations. Watcher history is best-effort and not a perfect audit log.
 
 ## Privacy guarantees
 
 - Chronicle has no analytics or telemetry.
 - Chronicle has no cloud storage and does not upload paths or metadata.
 - Scanning is limited to folders the user explicitly selects.
+- Monitoring is disabled by default and can only be enabled per indexed folder.
 - Metadata scanning never opens file contents and skips symbolic links by default.
+- Watcher batches recheck metadata only and validate raw events against authorized roots.
 - Failed, cancelled, or interrupted scans preserve the last complete snapshot.
 - Clearing Chronicle data will never delete original files.
 
@@ -70,7 +74,7 @@ npm run tauri build
 
 ## Architecture at a glance
 
-React renders the interface and calls one typed client. Tauri commands validate the boundary and delegate to Rust services. Rust owns SQLite, migrations, platform contracts, task contracts, and future filesystem work. React components never contain SQL or filesystem logic.
+React renders the interface and calls one typed client. Tauri commands validate the boundary and delegate to Rust services. Rust owns SQLite, migrations, platform contracts, task contracts, and filesystem watching. React components never contain SQL or filesystem logic.
 
 Read [Architecture](docs/architecture.md) and [Database](docs/database.md) for details.
 
@@ -87,4 +91,4 @@ Read [Architecture](docs/architecture.md) and [Database](docs/database.md) for d
 
 ## Project status
 
-Chronicle is at Milestone 1. The database and UI are intentionally empty on first launch because no fake folders, files, or events are created.
+Chronicle is at Milestone 3. The database and timeline are intentionally empty until the user authorizes a folder and completes a scan or explicitly enables monitoring; no fake production data is created.

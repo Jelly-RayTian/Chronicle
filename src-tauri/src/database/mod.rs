@@ -83,13 +83,14 @@ mod tests {
             "file_events",
             "scan_runs",
             "scan_file_staging",
+            "file_path_history",
             "app_settings",
         ] {
             assert!(names.contains(expected), "missing table: {expected}");
         }
         drop(statement);
         drop(connection);
-        assert_eq!(database.schema_version().unwrap_or_default(), 2);
+        assert_eq!(database.schema_version().unwrap_or_default(), 5);
     }
 
     #[test]
@@ -105,7 +106,7 @@ mod tests {
     fn new_database_returns_a_real_empty_timeline_page() {
         let (_directory, database) = new_database();
         let page = database
-            .query_timeline_page(None, 50)
+            .query_timeline_page(&crate::models::TimelineRequest::first_page(50))
             .unwrap_or_else(|error| panic!("timeline query should succeed: {error}"));
         assert!(page.items.is_empty());
         assert_eq!(page.next_cursor, None);
@@ -125,9 +126,28 @@ mod tests {
         let folder = crate::folders::register_folder(&database, &root.to_string_lossy())
             .unwrap_or_else(|error| panic!("folder should register: {error}"))
             .folder;
+        let first_run = database
+            .create_scan_run(folder.id)
+            .unwrap_or_else(|error| panic!("first scan should start: {error}"));
+        let file = crate::scanner::DiscoveredFile {
+            normalized_path: root.join("stable.txt").to_string_lossy().into_owned(),
+            name: "stable.txt".to_owned(),
+            parent_path: root.to_string_lossy().into_owned(),
+            extension: Some("txt".to_owned()),
+            size_bytes: 6,
+            filesystem_created_at: None,
+            filesystem_modified_at: "2026-06-23T00:00:00.000Z".to_owned(),
+            identity_key: None,
+        };
+        database
+            .stage_scan_batch(first_run.scan_run_id, folder.id, &[file], 1, 0, 0)
+            .unwrap_or_else(|error| panic!("first scan should stage: {error}"));
+        database
+            .complete_scan(first_run.scan_run_id, folder.id, 1, 0, 0)
+            .unwrap_or_else(|error| panic!("first snapshot should publish: {error}"));
         let run = database
             .create_scan_run(folder.id)
-            .unwrap_or_else(|error| panic!("scan should start: {error}"));
+            .unwrap_or_else(|error| panic!("interrupted scan should start: {error}"));
         drop(database);
 
         let reopened =
@@ -136,11 +156,13 @@ mod tests {
             .scan_task_snapshot(run.scan_run_id)
             .unwrap_or_else(|error| panic!("recovered run should load: {error}"));
         assert_eq!(snapshot.status, crate::models::TaskStatus::Failed);
-        assert!(
-            reopened
-                .list_file_records(folder.id)
-                .unwrap_or_default()
-                .is_empty()
-        );
+        let files = reopened.list_file_records(folder.id).unwrap_or_default();
+        assert_eq!(files.len(), 1);
+        assert!(files[0].is_present);
+        let events = reopened
+            .query_timeline_page(&crate::models::TimelineRequest::first_page(50))
+            .unwrap_or_else(|error| panic!("timeline should load: {error}"));
+        assert_eq!(events.items.len(), 1);
+        assert_eq!(events.items[0].event.event_type, "created");
     }
 }

@@ -40,6 +40,48 @@ pub struct IndexedFolder {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum WatcherDesiredState {
+    Disabled,
+    Enabled,
+    Paused,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum WatcherRuntimeState {
+    Stopped,
+    Running,
+    Paused,
+    Unavailable,
+    Error,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct WatcherStatus {
+    pub folder_id: i64,
+    pub desired_state: WatcherDesiredState,
+    pub runtime_state: WatcherRuntimeState,
+    pub coalescing_window_ms: u64,
+    pub last_started_at: Option<String>,
+    pub last_stopped_at: Option<String>,
+    pub last_event_at: Option<String>,
+    pub last_error_at: Option<String>,
+    pub last_error_kind: Option<String>,
+    pub last_error_message: Option<String>,
+    pub events_recorded: u64,
+    pub events_dropped: u64,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct WatcherControlRequest {
+    pub folder_id: i64,
+    pub coalescing_window_ms: Option<u64>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum NestingRelationship {
     InsideExisting,
@@ -91,6 +133,76 @@ pub struct FileEvent {
     pub new_path: Option<String>,
     pub confidence: Option<f64>,
     pub event_source: String,
+    pub user_confirmation: Option<String>,
+    pub user_confirmed_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum RenameConfidence {
+    Confirmed,
+    StrongInference,
+    WeakInference,
+    Unknown,
+}
+
+impl RenameConfidence {
+    #[must_use]
+    pub fn confidence(&self) -> f64 {
+        match self {
+            Self::Confirmed => 1.0,
+            Self::StrongInference => 0.8,
+            Self::WeakInference => 0.4,
+            Self::Unknown => 0.0,
+        }
+    }
+
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Confirmed => "confirmed",
+            Self::StrongInference => "strong_inference",
+            Self::WeakInference => "weak_inference",
+            Self::Unknown => "unknown",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PathHistoryItem {
+    pub id: i64,
+    pub file_id: i64,
+    pub old_path: String,
+    pub new_path: String,
+    pub valid_from: String,
+    pub valid_until: Option<String>,
+    pub confidence: f64,
+    pub evidence: String,
+    pub event_source: String,
+    pub detected_at: String,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfirmEventRequest {
+    pub event_id: i64,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PathHistoryRequest {
+    pub file_id: i64,
+    pub limit: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct TimelineItem {
+    pub event: FileEvent,
+    pub file: FileRecord,
+    pub folder_name: String,
+    pub folder_path: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -129,7 +241,7 @@ pub struct ScanTaskSnapshot {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct TimelinePage {
-    pub items: Vec<FileEvent>,
+    pub items: Vec<TimelineItem>,
     pub next_cursor: Option<i64>,
     pub has_more: bool,
 }
@@ -146,10 +258,61 @@ impl TimelinePage {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum PresenceFilter {
+    Present,
+    Deleted,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct TimelineRequest {
     pub cursor: Option<i64>,
     pub page_size: u32,
+    pub filename: Option<String>,
+    pub extension: Option<String>,
+    pub event_type: Option<String>,
+    pub folder_id: Option<i64>,
+    pub date_from: Option<String>,
+    pub date_to: Option<String>,
+    pub presence: Option<PresenceFilter>,
+}
+
+impl TimelineRequest {
+    #[must_use]
+    pub fn first_page(page_size: u32) -> Self {
+        Self {
+            cursor: None,
+            page_size,
+            filename: None,
+            extension: None,
+            event_type: None,
+            folder_id: None,
+            date_from: None,
+            date_to: None,
+            presence: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct FileHistoryRequest {
+    pub file_id: i64,
+    pub limit: u32,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ScanHistoryRequest {
+    pub folder_id: i64,
+    pub limit: u32,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct FileActionRequest {
+    pub file_id: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

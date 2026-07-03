@@ -1,4 +1,12 @@
-import { FolderPlus, FolderSimpleDashed, ShieldCheck, Warning } from '@phosphor-icons/react';
+import {
+  FolderPlus,
+  FolderSimpleDashed,
+  Pause,
+  Play,
+  ShieldCheck,
+  Stop,
+  Warning,
+} from '@phosphor-icons/react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -20,10 +28,15 @@ export const IndexedFoldersPage = () => {
     indexedFolders,
     folderActionError,
     scans,
+    watcherStatuses,
     addIndexedFolder,
     removeIndexedFolder,
     startFolderScan,
     cancelFolderScan,
+    enableFolderMonitoring,
+    disableFolderMonitoring,
+    pauseFolderMonitoring,
+    resumeFolderMonitoring,
     clearFolderActionError,
     reload,
   } = useAppData();
@@ -102,6 +115,10 @@ export const IndexedFoldersPage = () => {
           {indexedFolders.data.map((folder) => {
             const scan = scans[folder.id];
             const running = scan?.status === 'running';
+            const watcher = watcherStatuses[folder.id];
+            const monitoringState = watcher?.desiredState ?? 'disabled';
+            const runtimeState = watcher?.runtimeState ?? 'stopped';
+            const monitoringActive = monitoringState !== 'disabled';
             return (
               <article className="folder-card" key={folder.id}>
                 <div className="folder-card__title">
@@ -126,9 +143,25 @@ export const IndexedFoldersPage = () => {
                   </div>
                   <div>
                     <dt>{t('folders.monitoring')}</dt>
-                    <dd>{t('folders.disabled')}</dd>
+                    <dd>{t(`folders.monitoringStates.${monitoringState}`)}</dd>
                   </div>
                 </dl>
+                {watcher ? (
+                  <div className="monitoring-status" data-status={runtimeState}>
+                    <div>
+                      <strong>{t(`folders.watcher.${runtimeState}`)}</strong>
+                      <span>
+                        {t('folders.watcher.counts', {
+                          events: watcher.eventsRecorded,
+                          dropped: watcher.eventsDropped,
+                        })}
+                      </span>
+                    </div>
+                    {watcher.lastErrorKind ? (
+                      <p>{t('folders.watcher.lastError', { kind: watcher.lastErrorKind })}</p>
+                    ) : null}
+                  </div>
+                ) : null}
                 {scan ? (
                   <div className="scan-status" data-status={scan.status}>
                     <div>
@@ -145,6 +178,46 @@ export const IndexedFoldersPage = () => {
                   </div>
                 ) : null}
                 <div className="folder-actions">
+                  {!monitoringActive ? (
+                    <button
+                      className="button"
+                      type="button"
+                      disabled={folder.availabilityStatus !== 'available'}
+                      onClick={() => void enableFolderMonitoring(folder.id)}
+                    >
+                      <Play size={16} aria-hidden="true" />
+                      {t('folders.enableMonitoring')}
+                    </button>
+                  ) : monitoringState === 'paused' ? (
+                    <button
+                      className="button"
+                      type="button"
+                      disabled={folder.availabilityStatus !== 'available'}
+                      onClick={() => void resumeFolderMonitoring(folder.id)}
+                    >
+                      <Play size={16} aria-hidden="true" />
+                      {t('folders.resumeMonitoring')}
+                    </button>
+                  ) : (
+                    <button
+                      className="button"
+                      type="button"
+                      onClick={() => void pauseFolderMonitoring(folder.id)}
+                    >
+                      <Pause size={16} aria-hidden="true" />
+                      {t('folders.pauseMonitoring')}
+                    </button>
+                  )}
+                  {monitoringActive ? (
+                    <button
+                      className="button"
+                      type="button"
+                      onClick={() => void disableFolderMonitoring(folder.id)}
+                    >
+                      <Stop size={16} aria-hidden="true" />
+                      {t('folders.disableMonitoring')}
+                    </button>
+                  ) : null}
                   {running ? (
                     <button
                       className="button"

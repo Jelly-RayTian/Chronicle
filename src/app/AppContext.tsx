@@ -9,6 +9,8 @@ import type {
   IndexedFolder,
   ScanTaskSnapshot,
   TimelinePage,
+  TimelineRequest,
+  WatcherStatus,
 } from '../models';
 import { AppDataContext, type Loadable } from './AppDataContext';
 
@@ -26,12 +28,15 @@ export const AppProvider = ({ children, client = tauriClient }: AppProviderProps
   const [reloadToken, setReloadToken] = useState(0);
   const [folderActionError, setFolderActionError] = useState<ApplicationError | null>(null);
   const [scans, setScans] = useState<Record<number, ScanTaskSnapshot>>({});
+  const [watcherStatuses, setWatcherStatuses] = useState<Record<number, WatcherStatus>>({});
+  const [timelineVersion, setTimelineVersion] = useState(0);
 
   const reload = useCallback(() => {
     setApplicationInfo(loading);
     setDatabaseStatus(loading);
     setIndexedFolders(loading);
     setTimeline(loading);
+    setWatcherStatuses({});
     setReloadToken((token) => token + 1);
   }, []);
 
@@ -44,6 +49,12 @@ export const AppProvider = ({ children, client = tauriClient }: AppProviderProps
     }
   }, [client]);
 
+  const refreshMonitoringStatuses = useCallback(async () => {
+    const statuses = await client.listMonitoringStatuses();
+    setWatcherStatuses(Object.fromEntries(statuses.map((status) => [status.folderId, status])));
+    return statuses;
+  }, [client]);
+
   const addIndexedFolder = useCallback(async (): Promise<FolderRegistration | null> => {
     setFolderActionError(null);
     try {
@@ -51,12 +62,13 @@ export const AppProvider = ({ children, client = tauriClient }: AppProviderProps
       if (path === null) return null;
       const registration = await client.registerIndexedFolder(path);
       await refreshFolders();
+      await refreshMonitoringStatuses();
       return registration;
     } catch (error: unknown) {
       setFolderActionError(toApplicationError(error));
       return null;
     }
-  }, [client, refreshFolders]);
+  }, [client, refreshFolders, refreshMonitoringStatuses]);
 
   const removeIndexedFolder = useCallback(
     async (folderId: number): Promise<boolean> => {
@@ -68,14 +80,20 @@ export const AppProvider = ({ children, client = tauriClient }: AppProviderProps
           delete next[folderId];
           return next;
         });
+        setWatcherStatuses((current) => {
+          const next = { ...current };
+          delete next[folderId];
+          return next;
+        });
         await refreshFolders();
+        await refreshMonitoringStatuses();
         return true;
       } catch (error: unknown) {
         setFolderActionError(toApplicationError(error));
         return false;
       }
     },
-    [client, refreshFolders],
+    [client, refreshFolders, refreshMonitoringStatuses],
   );
 
   const startFolderScan = useCallback(
@@ -103,6 +121,37 @@ export const AppProvider = ({ children, client = tauriClient }: AppProviderProps
     [client],
   );
 
+  const applyWatcherAction = useCallback(
+    async (action: () => Promise<WatcherStatus>) => {
+      setFolderActionError(null);
+      try {
+        const status = await action();
+        setWatcherStatuses((current) => ({ ...current, [status.folderId]: status }));
+        await refreshFolders();
+      } catch (error: unknown) {
+        setFolderActionError(toApplicationError(error));
+      }
+    },
+    [refreshFolders],
+  );
+
+  const enableFolderMonitoring = useCallback(
+    (folderId: number) => applyWatcherAction(() => client.enableFolderMonitoring(folderId)),
+    [applyWatcherAction, client],
+  );
+  const disableFolderMonitoring = useCallback(
+    (folderId: number) => applyWatcherAction(() => client.disableFolderMonitoring(folderId)),
+    [applyWatcherAction, client],
+  );
+  const pauseFolderMonitoring = useCallback(
+    (folderId: number) => applyWatcherAction(() => client.pauseFolderMonitoring(folderId)),
+    [applyWatcherAction, client],
+  );
+  const resumeFolderMonitoring = useCallback(
+    (folderId: number) => applyWatcherAction(() => client.resumeFolderMonitoring(folderId)),
+    [applyWatcherAction, client],
+  );
+
   useEffect(() => {
     let active = true;
     const settle = <T,>(promise: Promise<T>, setter: (value: Loadable<T>) => void) => {
@@ -119,7 +168,32 @@ export const AppProvider = ({ children, client = tauriClient }: AppProviderProps
     settle(client.getApplicationInfo(), setApplicationInfo);
     settle(client.getDatabaseStatus(), setDatabaseStatus);
     settle(client.listIndexedFolders(), setIndexedFolders);
-    settle(client.queryTimelinePage({ cursor: null, pageSize: 50 }), setTimeline);
+    void client.listMonitoringStatuses().then(
+      (statuses) => {
+        if (active) {
+          setWatcherStatuses(
+            Object.fromEntries(statuses.map((status) => [status.folderId, status])),
+          );
+        }
+      },
+      (error: unknown) => {
+        if (active) setFolderActionError(toApplicationError(error));
+      },
+    );
+    settle(
+      client.queryTimelinePage({
+        cursor: null,
+        pageSize: 50,
+        filename: null,
+        extension: null,
+        eventType: null,
+        folderId: null,
+        dateFrom: null,
+        dateTo: null,
+        presence: null,
+      }),
+      setTimeline,
+    );
 
     return () => {
       active = false;
@@ -135,7 +209,10 @@ export const AppProvider = ({ children, client = tauriClient }: AppProviderProps
           try {
             const updated = await client.getScanTask(scan.scanRunId);
             setScans((current) => ({ ...current, [updated.indexedFolderId]: updated }));
-            if (updated.status !== 'running') await refreshFolders();
+            if (updated.status !== 'running') {
+              await refreshFolders();
+              setTimelineVersion((version) => version + 1);
+            }
           } catch (error: unknown) {
             setFolderActionError(toApplicationError(error));
           }
@@ -145,6 +222,69 @@ export const AppProvider = ({ children, client = tauriClient }: AppProviderProps
     return () => globalThis.clearInterval(timer);
   }, [client, refreshFolders, scans]);
 
+  useEffect(() => {
+    const activeStatuses = Object.values(watcherStatuses).filter(
+      (status) => status.desiredState !== 'disabled',
+    );
+    if (activeStatuses.length === 0) return undefined;
+    const timer = globalThis.setInterval(() => {
+      void client.listMonitoringStatuses().then(
+        async (statuses) => {
+          let changedEvents = false;
+          setWatcherStatuses((current) => {
+            const next = Object.fromEntries(statuses.map((status) => [status.folderId, status]));
+            changedEvents = statuses.some(
+              (status) => current[status.folderId]?.eventsRecorded !== status.eventsRecorded,
+            );
+            return next;
+          });
+          if (changedEvents) {
+            await refreshFolders();
+            setTimelineVersion((version) => version + 1);
+          }
+        },
+        (error: unknown) => setFolderActionError(toApplicationError(error)),
+      );
+    }, 1000);
+    return () => globalThis.clearInterval(timer);
+  }, [client, refreshFolders, watcherStatuses]);
+
+  const queryTimeline = useCallback(
+    (request: TimelineRequest) => {
+      void timelineVersion;
+      return client.queryTimelinePage(request);
+    },
+    [client, timelineVersion],
+  );
+  const getFileEventHistory = useCallback(
+    (fileId: number) => client.getFileEventHistory(fileId),
+    [client],
+  );
+  const getScanHistory = useCallback(
+    (folderId: number) => client.getScanHistory(folderId),
+    [client],
+  );
+  const getFilePathHistory = useCallback(
+    (fileId: number) => client.getFilePathHistory(fileId),
+    [client],
+  );
+  const confirmEvent = useCallback(
+    (eventId: number) => client.confirmEvent(eventId),
+    [client],
+  );
+  const rejectEvent = useCallback(
+    (eventId: number) => client.rejectEvent(eventId),
+    [client],
+  );
+  const openTimelineFile = useCallback(
+    (fileId: number) => client.openTimelineFile(fileId),
+    [client],
+  );
+  const revealTimelineFile = useCallback(
+    (fileId: number) => client.revealTimelineFile(fileId),
+    [client],
+  );
+
   const value = {
     applicationInfo,
     databaseStatus,
@@ -152,10 +292,23 @@ export const AppProvider = ({ children, client = tauriClient }: AppProviderProps
     timeline,
     folderActionError,
     scans,
+    watcherStatuses,
     addIndexedFolder,
     removeIndexedFolder,
     startFolderScan,
     cancelFolderScan,
+    enableFolderMonitoring,
+    disableFolderMonitoring,
+    pauseFolderMonitoring,
+    resumeFolderMonitoring,
+    queryTimeline,
+    getFileEventHistory,
+    getScanHistory,
+    getFilePathHistory,
+    confirmEvent,
+    rejectEvent,
+    openTimelineFile,
+    revealTimelineFile,
     clearFolderActionError: () => setFolderActionError(null),
     reload,
   };
