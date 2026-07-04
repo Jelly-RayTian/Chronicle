@@ -1,4 +1,7 @@
-use std::{collections::HashSet, sync::MutexGuard};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::MutexGuard,
+};
 
 use chrono::{SecondsFormat, Utc};
 use rusqlite::{Connection, OptionalExtension, params, types::Type};
@@ -6,16 +9,22 @@ use rusqlite::{Connection, OptionalExtension, params, types::Type};
 use crate::{
     errors::ChronicleError,
     models::{
+        ActivitySession, ActivitySessionDetail, ActivitySessionStatus, ActivitySessionSummary,
         AvailabilityStatus, FileEvent, FileRecord, FileVersionCandidate, IndexedFolder,
-        ListVersionFamiliesRequest, PresenceFilter, ScanRun, ScanTaskSnapshot, TaskStatus,
-        TimelineItem, TimelinePage, TimelineRequest, VersionFamily, VersionFamilyDecision,
-        VersionFamilyDetail, VersionFamilyMember, VersionFamilyMemberWithFile, VersionFamilyStatus,
-        VersionFamilySuggestion, VersionFamilySummary, WatcherDesiredState, WatcherRuntimeState,
-        WatcherStatus,
+        ListProjectsRequest, ListSessionsRequest, ListVersionFamiliesRequest, PresenceFilter,
+        Project, ProjectDecision, ProjectDetail, ProjectMember, ProjectMemberWithFile,
+        ProjectMembershipType, ProjectStatus, ProjectSuggestion, ProjectSummary, ScanRun,
+        ScanTaskSnapshot, TaskStatus, TimelineItem, TimelinePage, TimelineRequest, VersionFamily,
+        VersionFamilyDecision, VersionFamilyDetail, VersionFamilyMember,
+        VersionFamilyMemberWithFile, VersionFamilyStatus, VersionFamilySuggestion,
+        VersionFamilySummary, WatcherDesiredState, WatcherRuntimeState, WatcherStatus,
     },
     scanner::DiscoveredFile,
     watcher::WatcherObservation,
 };
+
+type SuggestedProjectGroup = (String, Vec<(i64, f64, String, String)>);
+type SessionTuple = (String, String, Option<i64>, Vec<i64>, Vec<i64>);
 
 use super::Database;
 
@@ -127,6 +136,61 @@ fn decode_family_decision(
     }
 }
 
+fn decode_project_status(value: &str) -> Result<ProjectStatus, rusqlite::Error> {
+    match value {
+        "suggested" => Ok(ProjectStatus::Suggested),
+        "active" => Ok(ProjectStatus::Active),
+        "archived" => Ok(ProjectStatus::Archived),
+        "rejected" => Ok(ProjectStatus::Rejected),
+        unexpected => Err(rusqlite::Error::FromSqlConversionFailure(
+            0,
+            Type::Text,
+            format!("unknown project status: {unexpected}").into(),
+        )),
+    }
+}
+
+fn decode_project_decision(
+    value: Option<&str>,
+) -> Result<Option<ProjectDecision>, rusqlite::Error> {
+    match value {
+        None | Some("") => Ok(None),
+        Some("accepted") => Ok(Some(ProjectDecision::Accepted)),
+        Some("rejected") => Ok(Some(ProjectDecision::Rejected)),
+        Some(unexpected) => Err(rusqlite::Error::FromSqlConversionFailure(
+            0,
+            Type::Text,
+            format!("unknown project decision: {unexpected}").into(),
+        )),
+    }
+}
+
+fn decode_project_membership_type(value: &str) -> Result<ProjectMembershipType, rusqlite::Error> {
+    match value {
+        "manual" => Ok(ProjectMembershipType::Manual),
+        "suggested" => Ok(ProjectMembershipType::Suggested),
+        unexpected => Err(rusqlite::Error::FromSqlConversionFailure(
+            0,
+            Type::Text,
+            format!("unknown project membership type: {unexpected}").into(),
+        )),
+    }
+}
+
+fn decode_session_status(value: &str) -> Result<ActivitySessionStatus, rusqlite::Error> {
+    match value {
+        "auto" => Ok(ActivitySessionStatus::Auto),
+        "edited" => Ok(ActivitySessionStatus::Edited),
+        "accepted" => Ok(ActivitySessionStatus::Accepted),
+        "rejected" => Ok(ActivitySessionStatus::Rejected),
+        unexpected => Err(rusqlite::Error::FromSqlConversionFailure(
+            0,
+            Type::Text,
+            format!("unknown activity session status: {unexpected}").into(),
+        )),
+    }
+}
+
 fn decode_nonnegative(value: i64, column: usize) -> Result<u64, rusqlite::Error> {
     u64::try_from(value).map_err(|error| {
         rusqlite::Error::FromSqlConversionFailure(column, Type::Integer, Box::new(error))
@@ -217,6 +281,59 @@ fn map_watcher_status(row: &rusqlite::Row<'_>) -> Result<WatcherStatus, rusqlite
         last_error_message: row.get(9)?,
         events_recorded: decode_nonnegative(row.get(10)?, 10)?,
         events_dropped: decode_nonnegative(row.get(11)?, 11)?,
+    })
+}
+
+fn map_project(row: &rusqlite::Row<'_>) -> Result<Project, rusqlite::Error> {
+    let status: String = row.get(3)?;
+    let decision: Option<String> = row.get(4)?;
+    Ok(Project {
+        id: row.get(0)?,
+        name: row.get(1)?,
+        description: row.get(2)?,
+        status: decode_project_status(&status)?,
+        decision: decode_project_decision(decision.as_deref())?,
+        created_at: row.get(5)?,
+        updated_at: row.get(6)?,
+    })
+}
+
+fn map_project_member(row: &rusqlite::Row<'_>) -> Result<ProjectMember, rusqlite::Error> {
+    let membership_type: String = row.get(3)?;
+    Ok(ProjectMember {
+        id: row.get(0)?,
+        project_id: row.get(1)?,
+        file_id: row.get(2)?,
+        membership_type: decode_project_membership_type(&membership_type)?,
+        added_at: row.get(4)?,
+    })
+}
+
+fn map_project_suggestion(row: &rusqlite::Row<'_>) -> Result<ProjectSuggestion, rusqlite::Error> {
+    Ok(ProjectSuggestion {
+        id: row.get(0)?,
+        project_id: row.get(1)?,
+        file_id: row.get(2)?,
+        confidence: row.get(3)?,
+        evidence: row.get(4)?,
+        source: row.get(5)?,
+        handled: row.get::<_, i64>(6)? != 0,
+        suggested_at: row.get(7)?,
+    })
+}
+
+fn map_activity_session(row: &rusqlite::Row<'_>) -> Result<ActivitySession, rusqlite::Error> {
+    let status: String = row.get(6)?;
+    Ok(ActivitySession {
+        id: row.get(0)?,
+        project_id: row.get(1)?,
+        title: row.get(2)?,
+        started_at: row.get(3)?,
+        ended_at: row.get(4)?,
+        event_summary: row.get(5)?,
+        status: decode_session_status(&status)?,
+        created_at: row.get(7)?,
+        updated_at: row.get(8)?,
     })
 }
 
@@ -843,6 +960,123 @@ impl Database {
                 first_indexed_at: row.get(9)?,
                 last_seen_at: row.get(10)?,
                 is_present: row.get::<_, i64>(11)? != 0,
+            })
+        })?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+    }
+
+    pub fn list_present_file_records(&self) -> Result<Vec<FileRecord>, ChronicleError> {
+        let connection = self.connection()?;
+        let mut statement = connection.prepare(
+            "SELECT id, indexed_folder_id, normalized_path, name, parent_path, extension,
+                    size_bytes, filesystem_created_at, filesystem_modified_at,
+                    first_indexed_at, last_seen_at, is_present
+             FROM files
+             WHERE is_present = 1
+             ORDER BY normalized_path",
+        )?;
+        let rows = statement.query_map([], |row| {
+            Ok(FileRecord {
+                id: row.get(0)?,
+                indexed_folder_id: row.get(1)?,
+                normalized_path: row.get(2)?,
+                name: row.get(3)?,
+                parent_path: row.get(4)?,
+                extension: row.get(5)?,
+                size_bytes: row.get(6)?,
+                filesystem_created_at: row.get(7)?,
+                filesystem_modified_at: row.get(8)?,
+                first_indexed_at: row.get(9)?,
+                last_seen_at: row.get(10)?,
+                is_present: row.get::<_, i64>(11)? != 0,
+            })
+        })?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+    }
+
+    pub fn list_confirmed_version_families(
+        &self,
+    ) -> Result<Vec<(i64, String, Vec<i64>)>, ChronicleError> {
+        let connection = self.connection()?;
+        let mut statement = connection.prepare(
+            "SELECT vf.id, vf.display_name, vfm.file_id
+             FROM version_families vf
+             JOIN version_family_members vfm ON vfm.version_family_id = vf.id
+             WHERE vf.status = 'confirmed'
+             ORDER BY vf.id, vfm.sort_order",
+        )?;
+        let rows = statement.query_map([], |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, i64>(2)?,
+            ))
+        })?;
+        let mut grouped: HashMap<i64, (String, Vec<i64>)> = HashMap::new();
+        for (id, name, file_id) in rows.collect::<Result<Vec<_>, _>>()? {
+            grouped
+                .entry(id)
+                .or_insert_with(|| (name, Vec::new()))
+                .1
+                .push(file_id);
+        }
+        Ok(grouped
+            .into_iter()
+            .map(|(id, (name, file_ids))| (id, name, file_ids))
+            .collect())
+    }
+
+    pub fn map_files_to_project_ids(
+        &self,
+        file_ids: &[i64],
+    ) -> Result<HashMap<i64, Vec<i64>>, ChronicleError> {
+        if file_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+        let connection = self.connection()?;
+        let placeholders = file_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let sql = format!(
+            "SELECT pm.file_id, pm.project_id
+             FROM project_members pm
+             JOIN projects p ON p.id = pm.project_id
+             WHERE pm.file_id IN ({}) AND p.status = 'active'",
+            placeholders
+        );
+        let mut statement = connection.prepare(&sql)?;
+        let rows = statement.query_map(rusqlite::params_from_iter(file_ids.iter()), |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?))
+        })?;
+        let mut mapping: HashMap<i64, Vec<i64>> = HashMap::new();
+        for (file_id, project_id) in rows.collect::<Result<Vec<_>, _>>()? {
+            mapping.entry(file_id).or_default().push(project_id);
+        }
+        Ok(mapping)
+    }
+
+    pub fn list_recent_file_events(&self, limit: u32) -> Result<Vec<FileEvent>, ChronicleError> {
+        let connection = self.connection()?;
+        let mut statement = connection.prepare(
+            "SELECT id, file_id, indexed_folder_id, event_type, detected_at,
+                    filesystem_time, old_path, new_path, confidence, event_source,
+                    user_confirmation, user_confirmed_at
+             FROM file_events
+             ORDER BY detected_at DESC, id DESC
+             LIMIT ?1",
+        )?;
+        let rows = statement.query_map([limit], |row| {
+            Ok(FileEvent {
+                id: row.get(0)?,
+                file_id: row.get(1)?,
+                indexed_folder_id: row.get(2)?,
+                event_type: row.get(3)?,
+                detected_at: row.get(4)?,
+                filesystem_time: row.get(5)?,
+                old_path: row.get(6)?,
+                new_path: row.get(7)?,
+                confidence: row.get(8)?,
+                event_source: row.get(9)?,
+                user_confirmation: row.get(10)?,
+                user_confirmed_at: row.get(11)?,
             })
         })?;
         rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
@@ -2100,5 +2334,736 @@ impl Database {
         transaction.commit()?;
         drop(connection);
         self.get_version_family(target_family_id)
+    }
+
+    pub fn create_project(
+        &self,
+        name: &str,
+        description: &str,
+        file_ids: &[i64],
+    ) -> Result<ProjectDetail, ChronicleError> {
+        let now = now_rfc3339();
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction()?;
+
+        transaction.execute(
+            "INSERT INTO projects (name, description, status, decision, created_at, updated_at)
+             VALUES (?1, ?2, 'active', 'accepted', ?3, ?3)",
+            params![name, description, now],
+        )?;
+        let project_id = transaction.last_insert_rowid();
+
+        for file_id in file_ids {
+            transaction.execute(
+                "INSERT INTO project_members (project_id, file_id, membership_type, added_at)
+                 VALUES (?1, ?2, 'manual', ?3)",
+                params![project_id, file_id, now],
+            )?;
+        }
+
+        transaction.commit()?;
+        drop(connection);
+        self.get_project(project_id)
+    }
+
+    pub fn list_projects(
+        &self,
+        request: &ListProjectsRequest,
+    ) -> Result<Vec<ProjectSummary>, ChronicleError> {
+        let projects: Vec<Project> = {
+            let connection = self.connection()?;
+            let sql = if request.status.is_some() {
+                "SELECT id, name, description, status, decision, created_at, updated_at
+                 FROM projects WHERE status = ?1 ORDER BY updated_at DESC, id DESC"
+            } else {
+                "SELECT id, name, description, status, decision, created_at, updated_at
+                 FROM projects ORDER BY updated_at DESC, id DESC"
+            };
+            let mut statement = connection.prepare(sql)?;
+            let rows = if let Some(status) = request.status {
+                statement.query_map([status.as_str()], map_project)?
+            } else {
+                statement.query_map([], map_project)?
+            };
+            rows.collect::<Result<Vec<_>, _>>()?
+        };
+
+        let mut summaries = Vec::with_capacity(projects.len());
+        for project in projects {
+            let members = self.list_project_member_rows(project.id)?;
+            summaries.push(ProjectSummary {
+                member_count: members.len(),
+                file_ids: members.iter().map(|member| member.file_id).collect(),
+                project,
+            });
+        }
+        Ok(summaries)
+    }
+
+    fn list_project_member_rows(
+        &self,
+        project_id: i64,
+    ) -> Result<Vec<ProjectMember>, ChronicleError> {
+        let connection = self.connection()?;
+        let mut statement = connection.prepare(
+            "SELECT id, project_id, file_id, membership_type, added_at
+             FROM project_members WHERE project_id = ?1 ORDER BY id ASC",
+        )?;
+        let rows = statement.query_map([project_id], map_project_member)?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+    }
+
+    pub fn get_project(&self, project_id: i64) -> Result<ProjectDetail, ChronicleError> {
+        let connection = self.connection()?;
+        let project: Project = connection
+            .query_row(
+                "SELECT id, name, description, status, decision, created_at, updated_at
+                 FROM projects WHERE id = ?1",
+                [project_id],
+                map_project,
+            )
+            .optional()?
+            .ok_or(ChronicleError::ProjectNotFound)?;
+
+        let members = {
+            let mut statement = connection.prepare(
+                "SELECT m.id, m.project_id, m.file_id, m.membership_type, m.added_at,
+                        f.id, f.indexed_folder_id, f.normalized_path, f.name, f.parent_path,
+                        f.extension, f.size_bytes, f.filesystem_created_at,
+                        f.filesystem_modified_at, f.first_indexed_at, f.last_seen_at, f.is_present
+                 FROM project_members m
+                 JOIN files f ON f.id = m.file_id
+                 WHERE m.project_id = ?1
+                 ORDER BY m.id ASC",
+            )?;
+            let rows = statement.query_map([project_id], |row| {
+                let member = ProjectMember {
+                    id: row.get(0)?,
+                    project_id: row.get(1)?,
+                    file_id: row.get(2)?,
+                    membership_type: decode_project_membership_type(&row.get::<_, String>(3)?)?,
+                    added_at: row.get(4)?,
+                };
+                let file = FileRecord {
+                    id: row.get(5)?,
+                    indexed_folder_id: row.get(6)?,
+                    normalized_path: row.get(7)?,
+                    name: row.get(8)?,
+                    parent_path: row.get(9)?,
+                    extension: row.get(10)?,
+                    size_bytes: row.get(11)?,
+                    filesystem_created_at: row.get(12)?,
+                    filesystem_modified_at: row.get(13)?,
+                    first_indexed_at: row.get(14)?,
+                    last_seen_at: row.get(15)?,
+                    is_present: row.get::<_, i64>(16)? != 0,
+                };
+                Ok(ProjectMemberWithFile { member, file })
+            })?;
+            rows.collect::<Result<Vec<_>, _>>()?
+        };
+
+        let suggestions = {
+            let mut statement = connection.prepare(
+                "SELECT id, project_id, file_id, confidence, evidence, source, handled, suggested_at
+                 FROM project_suggestions
+                 WHERE project_id = ?1 AND handled = 0
+                 ORDER BY confidence DESC, id ASC",
+            )?;
+            let rows = statement.query_map([project_id], map_project_suggestion)?;
+            rows.collect::<Result<Vec<_>, _>>()?
+        };
+
+        Ok(ProjectDetail {
+            project,
+            members,
+            suggestions,
+        })
+    }
+
+    pub fn update_project(
+        &self,
+        project_id: i64,
+        name: Option<&str>,
+        description: Option<&str>,
+    ) -> Result<Project, ChronicleError> {
+        let now = now_rfc3339();
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction()?;
+        let existing: Project = transaction
+            .query_row(
+                "SELECT id, name, description, status, decision, created_at, updated_at
+                 FROM projects WHERE id = ?1",
+                [project_id],
+                map_project,
+            )
+            .optional()?
+            .ok_or(ChronicleError::ProjectNotFound)?;
+
+        let new_name = name.map(str::trim).filter(|value| !value.is_empty());
+        let new_description = description.map(str::trim).map(str::to_owned);
+        let final_name = new_name.unwrap_or(&existing.name);
+        let final_description = new_description.as_deref().unwrap_or(&existing.description);
+
+        transaction.execute(
+            "UPDATE projects SET name = ?1, description = ?2, updated_at = ?3 WHERE id = ?4",
+            params![final_name, final_description, now, project_id],
+        )?;
+        transaction.commit()?;
+        drop(connection);
+        self.get_project(project_id).map(|detail| detail.project)
+    }
+
+    pub fn accept_project(&self, project_id: i64) -> Result<Project, ChronicleError> {
+        let now = now_rfc3339();
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction()?;
+        transaction.execute(
+            "UPDATE projects
+             SET status = 'active', decision = 'accepted', updated_at = ?2
+             WHERE id = ?1",
+            params![project_id, now],
+        )?;
+        if transaction.changes() == 0 {
+            return Err(ChronicleError::ProjectNotFound);
+        }
+        transaction.execute(
+            "UPDATE project_members
+             SET membership_type = 'manual'
+             WHERE project_id = ?1 AND membership_type = 'suggested'",
+            [project_id],
+        )?;
+        transaction.execute(
+            "UPDATE project_suggestions SET handled = 1 WHERE project_id = ?1",
+            [project_id],
+        )?;
+        transaction.commit()?;
+        drop(connection);
+        self.get_project(project_id).map(|detail| detail.project)
+    }
+
+    pub fn reject_project(&self, project_id: i64) -> Result<Project, ChronicleError> {
+        let now = now_rfc3339();
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction()?;
+        transaction.execute(
+            "UPDATE projects
+             SET status = 'rejected', decision = 'rejected', updated_at = ?2
+             WHERE id = ?1",
+            params![project_id, now],
+        )?;
+        if transaction.changes() == 0 {
+            return Err(ChronicleError::ProjectNotFound);
+        }
+        transaction.execute(
+            "UPDATE project_suggestions SET handled = 1 WHERE project_id = ?1",
+            [project_id],
+        )?;
+        transaction.commit()?;
+        drop(connection);
+        self.get_project(project_id).map(|detail| detail.project)
+    }
+
+    pub fn add_project_member(
+        &self,
+        project_id: i64,
+        file_id: i64,
+    ) -> Result<ProjectDetail, ChronicleError> {
+        let now = now_rfc3339();
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction()?;
+        let project_exists: bool = transaction.query_row(
+            "SELECT EXISTS(SELECT 1 FROM projects WHERE id = ?1)",
+            [project_id],
+            |row| row.get(0),
+        )?;
+        if !project_exists {
+            return Err(ChronicleError::ProjectNotFound);
+        }
+        let result = transaction.execute(
+            "INSERT INTO project_members (project_id, file_id, membership_type, added_at)
+             VALUES (?1, ?2, 'manual', ?3)",
+            params![project_id, file_id, now],
+        );
+        match result {
+            Ok(_) => {}
+            Err(rusqlite::Error::SqliteFailure(ref code, _)) if code.extended_code == 2067 => {
+                return Err(ChronicleError::DuplicateProjectMember);
+            }
+            Err(error) => return Err(error.into()),
+        }
+        transaction.execute(
+            "UPDATE project_suggestions SET handled = 1 WHERE project_id = ?1 AND file_id = ?2",
+            params![project_id, file_id],
+        )?;
+        transaction.commit()?;
+        drop(connection);
+        self.get_project(project_id)
+    }
+
+    pub fn remove_project_member(
+        &self,
+        project_id: i64,
+        file_id: i64,
+    ) -> Result<ProjectDetail, ChronicleError> {
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction()?;
+        let deleted = transaction.execute(
+            "DELETE FROM project_members WHERE project_id = ?1 AND file_id = ?2",
+            params![project_id, file_id],
+        )?;
+        if deleted == 0 {
+            return Err(ChronicleError::ProjectMemberNotFound);
+        }
+        transaction.execute(
+            "UPDATE project_suggestions SET handled = 1 WHERE project_id = ?1 AND file_id = ?2",
+            params![project_id, file_id],
+        )?;
+        transaction.commit()?;
+        drop(connection);
+        self.get_project(project_id)
+    }
+
+    pub fn replace_suggested_projects(
+        &self,
+        groups: Vec<SuggestedProjectGroup>,
+    ) -> Result<usize, ChronicleError> {
+        if groups.is_empty() {
+            return Ok(0);
+        }
+        let now = now_rfc3339();
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction()?;
+
+        transaction.execute(
+            "DELETE FROM project_suggestions WHERE project_id IN (
+                SELECT id FROM projects WHERE status = 'suggested'
+             )",
+            [],
+        )?;
+        transaction.execute(
+            "DELETE FROM project_members WHERE project_id IN (
+                SELECT id FROM projects WHERE status = 'suggested'
+             )",
+            [],
+        )?;
+        transaction.execute("DELETE FROM projects WHERE status = 'suggested'", [])?;
+
+        let mut created = 0_usize;
+        for (name, members) in groups {
+            if members.len() < 2 {
+                continue;
+            }
+            transaction.execute(
+                "INSERT INTO projects (name, description, status, decision, created_at, updated_at)
+                 VALUES (?1, '', 'suggested', NULL, ?2, ?2)",
+                params![name, now],
+            )?;
+            let project_id = transaction.last_insert_rowid();
+            created += 1;
+
+            let file_ids: HashSet<i64> =
+                members.iter().map(|(file_id, _, _, _)| *file_id).collect();
+            for file_id in file_ids {
+                transaction.execute(
+                    "INSERT INTO project_members (project_id, file_id, membership_type, added_at)
+                     VALUES (?1, ?2, 'suggested', ?3)",
+                    params![project_id, file_id, now],
+                )?;
+            }
+            for (file_id, confidence, evidence, source) in members {
+                transaction.execute(
+                    "INSERT INTO project_suggestions
+                     (project_id, file_id, confidence, evidence, source, handled, suggested_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5, 0, ?6)",
+                    params![project_id, file_id, confidence, evidence, source, now],
+                )?;
+            }
+        }
+
+        transaction.commit()?;
+        Ok(created)
+    }
+
+    pub fn list_project_timeline_events(
+        &self,
+        project_id: i64,
+        limit: u32,
+    ) -> Result<Vec<TimelineItem>, ChronicleError> {
+        let connection = self.connection()?;
+        let mut statement = connection.prepare(
+            "SELECT e.id, e.file_id, e.indexed_folder_id, e.event_type, e.detected_at,
+                    e.filesystem_time, e.old_path, e.new_path, e.confidence, e.event_source,
+                    e.user_confirmation, e.user_confirmed_at,
+                    f.id, f.indexed_folder_id, f.normalized_path, f.name, f.parent_path,
+                    f.extension, f.size_bytes, f.filesystem_created_at, f.filesystem_modified_at,
+                    f.first_indexed_at, f.last_seen_at, f.is_present,
+                    i.display_name, i.normalized_path
+             FROM file_events e
+             JOIN files f ON f.id = e.file_id
+             JOIN indexed_folders i ON i.id = e.indexed_folder_id
+             WHERE e.file_id IN (SELECT file_id FROM project_members WHERE project_id = ?1)
+             ORDER BY e.id DESC
+             LIMIT ?2",
+        )?;
+        let rows = statement.query_map(params![project_id, limit], |row| {
+            Ok(TimelineItem {
+                event: FileEvent {
+                    id: row.get(0)?,
+                    file_id: row.get(1)?,
+                    indexed_folder_id: row.get(2)?,
+                    event_type: row.get(3)?,
+                    detected_at: row.get(4)?,
+                    filesystem_time: row.get(5)?,
+                    old_path: row.get(6)?,
+                    new_path: row.get(7)?,
+                    confidence: row.get(8)?,
+                    event_source: row.get(9)?,
+                    user_confirmation: row.get(10)?,
+                    user_confirmed_at: row.get(11)?,
+                },
+                file: FileRecord {
+                    id: row.get(12)?,
+                    indexed_folder_id: row.get(13)?,
+                    normalized_path: row.get(14)?,
+                    name: row.get(15)?,
+                    parent_path: row.get(16)?,
+                    extension: row.get(17)?,
+                    size_bytes: row.get(18)?,
+                    filesystem_created_at: row.get(19)?,
+                    filesystem_modified_at: row.get(20)?,
+                    first_indexed_at: row.get(21)?,
+                    last_seen_at: row.get(22)?,
+                    is_present: row.get::<_, i64>(23)? != 0,
+                },
+                folder_name: row.get(24)?,
+                folder_path: row.get(25)?,
+            })
+        })?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+    }
+
+    pub fn replace_activity_sessions(
+        &self,
+        sessions: Vec<SessionTuple>,
+    ) -> Result<usize, ChronicleError> {
+        if sessions.is_empty() {
+            return Ok(0);
+        }
+        let now = now_rfc3339();
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction()?;
+
+        transaction.execute(
+            "DELETE FROM activity_session_events WHERE session_id IN (
+                SELECT id FROM activity_sessions WHERE status = 'auto'
+             )",
+            [],
+        )?;
+        transaction.execute(
+            "DELETE FROM activity_session_files WHERE session_id IN (
+                SELECT id FROM activity_sessions WHERE status = 'auto'
+             )",
+            [],
+        )?;
+        transaction.execute("DELETE FROM activity_sessions WHERE status = 'auto'", [])?;
+
+        let mut created = 0_usize;
+        for (title, summary, project_id, event_ids, file_ids) in sessions {
+            if event_ids.is_empty() {
+                continue;
+            }
+            let started_at = transaction.query_row(
+                "SELECT detected_at FROM file_events WHERE id = ?1",
+                [event_ids[0]],
+                |row| row.get::<_, String>(0),
+            )?;
+            let ended_at = transaction.query_row(
+                "SELECT detected_at FROM file_events WHERE id = ?1",
+                [event_ids[event_ids.len() - 1]],
+                |row| row.get::<_, String>(0),
+            )?;
+            transaction.execute(
+                "INSERT INTO activity_sessions
+                 (project_id, title, started_at, ended_at, event_summary, status, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, 'auto', ?6, ?6)",
+                params![project_id, title, started_at, ended_at, summary, now],
+            )?;
+            let session_id = transaction.last_insert_rowid();
+            created += 1;
+
+            for event_id in event_ids {
+                transaction.execute(
+                    "INSERT INTO activity_session_events (session_id, file_event_id)
+                     VALUES (?1, ?2)",
+                    params![session_id, event_id],
+                )?;
+            }
+            for file_id in file_ids {
+                transaction.execute(
+                    "INSERT INTO activity_session_files (session_id, file_id)
+                     VALUES (?1, ?2)",
+                    params![session_id, file_id],
+                )?;
+            }
+        }
+
+        transaction.commit()?;
+        Ok(created)
+    }
+
+    pub fn list_sessions(
+        &self,
+        request: &ListSessionsRequest,
+    ) -> Result<Vec<ActivitySessionSummary>, ChronicleError> {
+        let sessions: Vec<ActivitySession> = {
+            let connection = self.connection()?;
+            let sql = if request.project_id.is_some() {
+                "SELECT s.id, s.project_id, s.title, s.started_at, s.ended_at, s.event_summary,
+                        s.status, s.created_at, s.updated_at
+                 FROM activity_sessions s
+                 WHERE s.project_id = ?1
+                 ORDER BY s.started_at DESC, s.id DESC"
+            } else {
+                "SELECT s.id, s.project_id, s.title, s.started_at, s.ended_at, s.event_summary,
+                        s.status, s.created_at, s.updated_at
+                 FROM activity_sessions s
+                 ORDER BY s.started_at DESC, s.id DESC"
+            };
+            let mut statement = connection.prepare(sql)?;
+            let rows = if let Some(project_id) = request.project_id {
+                statement.query_map([project_id], map_activity_session)?
+            } else {
+                statement.query_map([], map_activity_session)?
+            };
+            rows.collect::<Result<Vec<_>, _>>()?
+        };
+
+        let mut summaries = Vec::with_capacity(sessions.len());
+        for session in sessions {
+            let event_count = self.session_event_count(session.id)?;
+            let file_count = self.session_file_count(session.id)?;
+            let project_name = session
+                .project_id
+                .and_then(|project_id| self.project_name(project_id).ok());
+            summaries.push(ActivitySessionSummary {
+                session,
+                event_count,
+                file_count,
+                project_name,
+            });
+        }
+        Ok(summaries)
+    }
+
+    fn session_event_count(&self, session_id: i64) -> Result<usize, ChronicleError> {
+        let connection = self.connection()?;
+        let count: i64 = connection.query_row(
+            "SELECT COUNT(*) FROM activity_session_events WHERE session_id = ?1",
+            [session_id],
+            |row| row.get(0),
+        )?;
+        Ok(usize::try_from(count).unwrap_or(usize::MAX))
+    }
+
+    fn session_file_count(&self, session_id: i64) -> Result<usize, ChronicleError> {
+        let connection = self.connection()?;
+        let count: i64 = connection.query_row(
+            "SELECT COUNT(*) FROM activity_session_files WHERE session_id = ?1",
+            [session_id],
+            |row| row.get(0),
+        )?;
+        Ok(usize::try_from(count).unwrap_or(usize::MAX))
+    }
+
+    pub(crate) fn project_name(&self, project_id: i64) -> Result<String, ChronicleError> {
+        let connection = self.connection()?;
+        connection
+            .query_row(
+                "SELECT name FROM projects WHERE id = ?1",
+                [project_id],
+                |row| row.get::<_, String>(0),
+            )
+            .map_err(Into::into)
+    }
+
+    pub fn get_session(&self, session_id: i64) -> Result<ActivitySessionDetail, ChronicleError> {
+        let connection = self.connection()?;
+        let session: ActivitySession = connection
+            .query_row(
+                "SELECT id, project_id, title, started_at, ended_at, event_summary,
+                        status, created_at, updated_at
+                 FROM activity_sessions WHERE id = ?1",
+                [session_id],
+                map_activity_session,
+            )
+            .optional()?
+            .ok_or(ChronicleError::SessionNotFound)?;
+
+        let project = if let Some(project_id) = session.project_id {
+            connection
+                .query_row(
+                    "SELECT id, name, description, status, decision, created_at, updated_at
+                     FROM projects WHERE id = ?1",
+                    [project_id],
+                    map_project,
+                )
+                .optional()?
+        } else {
+            None
+        };
+
+        let events = {
+            let mut statement = connection.prepare(
+                "SELECT e.id, e.file_id, e.indexed_folder_id, e.event_type, e.detected_at,
+                        e.filesystem_time, e.old_path, e.new_path, e.confidence, e.event_source,
+                        e.user_confirmation, e.user_confirmed_at
+                 FROM activity_session_events se
+                 JOIN file_events e ON e.id = se.file_event_id
+                 WHERE se.session_id = ?1
+                 ORDER BY e.detected_at ASC, e.id ASC",
+            )?;
+            let rows = statement.query_map([session_id], |row| {
+                Ok(FileEvent {
+                    id: row.get(0)?,
+                    file_id: row.get(1)?,
+                    indexed_folder_id: row.get(2)?,
+                    event_type: row.get(3)?,
+                    detected_at: row.get(4)?,
+                    filesystem_time: row.get(5)?,
+                    old_path: row.get(6)?,
+                    new_path: row.get(7)?,
+                    confidence: row.get(8)?,
+                    event_source: row.get(9)?,
+                    user_confirmation: row.get(10)?,
+                    user_confirmed_at: row.get(11)?,
+                })
+            })?;
+            rows.collect::<Result<Vec<_>, _>>()?
+        };
+
+        let files = {
+            let mut statement = connection.prepare(
+                "SELECT f.id, f.indexed_folder_id, f.normalized_path, f.name, f.parent_path,
+                        f.extension, f.size_bytes, f.filesystem_created_at,
+                        f.filesystem_modified_at, f.first_indexed_at, f.last_seen_at, f.is_present
+                 FROM activity_session_files sf
+                 JOIN files f ON f.id = sf.file_id
+                 WHERE sf.session_id = ?1
+                 ORDER BY f.name ASC",
+            )?;
+            let rows = statement.query_map([session_id], |row| {
+                Ok(FileRecord {
+                    id: row.get(0)?,
+                    indexed_folder_id: row.get(1)?,
+                    normalized_path: row.get(2)?,
+                    name: row.get(3)?,
+                    parent_path: row.get(4)?,
+                    extension: row.get(5)?,
+                    size_bytes: row.get(6)?,
+                    filesystem_created_at: row.get(7)?,
+                    filesystem_modified_at: row.get(8)?,
+                    first_indexed_at: row.get(9)?,
+                    last_seen_at: row.get(10)?,
+                    is_present: row.get::<_, i64>(11)? != 0,
+                })
+            })?;
+            rows.collect::<Result<Vec<_>, _>>()?
+        };
+
+        Ok(ActivitySessionDetail {
+            session,
+            project,
+            files,
+            events,
+        })
+    }
+
+    pub fn update_session(
+        &self,
+        session_id: i64,
+        title: Option<&str>,
+        project_id: Option<i64>,
+    ) -> Result<ActivitySession, ChronicleError> {
+        let now = now_rfc3339();
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction()?;
+        let existing: ActivitySession = transaction
+            .query_row(
+                "SELECT id, project_id, title, started_at, ended_at, event_summary,
+                        status, created_at, updated_at
+                 FROM activity_sessions WHERE id = ?1",
+                [session_id],
+                map_activity_session,
+            )
+            .optional()?
+            .ok_or(ChronicleError::SessionNotFound)?;
+
+        let final_title = title.map(str::trim).filter(|value| !value.is_empty());
+        let final_project_id = if title.is_some() && project_id.is_none() {
+            existing.project_id
+        } else {
+            project_id
+        };
+        let new_status = if title.is_some() || project_id.is_some() {
+            ActivitySessionStatus::Edited
+        } else {
+            existing.status
+        };
+
+        transaction.execute(
+            "UPDATE activity_sessions
+             SET title = ?1, project_id = ?2, status = ?3, updated_at = ?4
+             WHERE id = ?5",
+            params![
+                final_title.unwrap_or(&existing.title),
+                final_project_id,
+                new_status.as_str(),
+                now,
+                session_id
+            ],
+        )?;
+        if transaction.changes() == 0 {
+            return Err(ChronicleError::SessionNotFound);
+        }
+        transaction.commit()?;
+        drop(connection);
+        self.get_session(session_id).map(|detail| detail.session)
+    }
+
+    pub fn accept_session(&self, session_id: i64) -> Result<ActivitySession, ChronicleError> {
+        let now = now_rfc3339();
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction()?;
+        transaction.execute(
+            "UPDATE activity_sessions
+             SET status = 'accepted', updated_at = ?2
+             WHERE id = ?1",
+            params![session_id, now],
+        )?;
+        if transaction.changes() == 0 {
+            return Err(ChronicleError::SessionNotFound);
+        }
+        transaction.commit()?;
+        drop(connection);
+        self.get_session(session_id).map(|detail| detail.session)
+    }
+
+    pub fn reject_session(&self, session_id: i64) -> Result<ActivitySession, ChronicleError> {
+        let now = now_rfc3339();
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction()?;
+        transaction.execute(
+            "UPDATE activity_sessions
+             SET status = 'rejected', updated_at = ?2
+             WHERE id = ?1",
+            params![session_id, now],
+        )?;
+        if transaction.changes() == 0 {
+            return Err(ChronicleError::SessionNotFound);
+        }
+        transaction.commit()?;
+        drop(connection);
+        self.get_session(session_id).map(|detail| detail.session)
     }
 }

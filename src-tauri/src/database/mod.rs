@@ -88,12 +88,18 @@ mod tests {
             "version_families",
             "version_family_members",
             "version_family_suggestions",
+            "projects",
+            "project_members",
+            "project_suggestions",
+            "activity_sessions",
+            "activity_session_events",
+            "activity_session_files",
         ] {
             assert!(names.contains(expected), "missing table: {expected}");
         }
         drop(statement);
         drop(connection);
-        assert_eq!(database.schema_version().unwrap_or_default(), 6);
+        assert_eq!(database.schema_version().unwrap_or_default(), 7);
     }
 
     #[test]

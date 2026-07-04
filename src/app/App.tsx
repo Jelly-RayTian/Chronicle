@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { AppShell } from '../components/layout/AppShell';
 import type { TauriClient } from '../lib/tauri/client';
 import { IndexedFoldersPage } from '../pages/IndexedFoldersPage';
+import { ProjectsPage } from '../pages/ProjectsPage';
+import { SessionsPage } from '../pages/SessionsPage';
 import { SettingsPage } from '../pages/SettingsPage';
 import { TimelinePage } from '../pages/TimelinePage';
 import { VersionsPage } from '../pages/VersionsPage';
@@ -16,6 +18,8 @@ interface AppProps {
 const CurrentPage = ({ page }: { page: PageId }) => {
   if (page === 'indexed-folders') return <IndexedFoldersPage />;
   if (page === 'versions') return <VersionsPage />;
+  if (page === 'projects') return <ProjectsPage />;
+  if (page === 'sessions') return <SessionsPage />;
   if (page === 'settings') return <SettingsPage />;
   return <TimelinePage />;
 };

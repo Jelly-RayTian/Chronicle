@@ -6,7 +6,9 @@ pub mod folders;
 pub mod identity;
 pub mod models;
 pub mod platform;
+pub mod projects;
 pub mod scanner;
+pub mod sessions;
 pub mod tasks;
 pub mod version_families;
 pub mod watcher;
@@ -19,6 +21,14 @@ use commands::{
     folders::{
         cancel_folder_scan, get_scan_task, list_all_files, list_indexed_folders,
         register_indexed_folder, remove_indexed_folder, start_folder_scan,
+    },
+    projects::{
+        accept_project, add_project_member, create_project, get_project, get_project_timeline,
+        list_projects, reject_project, remove_project_member, suggest_projects, update_project,
+    },
+    sessions::{
+        accept_session, generate_sessions, get_session, list_sessions, reject_session,
+        update_session,
     },
     timeline::{
         confirm_event, get_file_event_history, get_file_path_history, get_scan_history,
@@ -87,7 +97,23 @@ pub fn run() {
             split_version_family,
             merge_version_families,
             add_version_family_member,
-            remove_version_family_member
+            remove_version_family_member,
+            list_projects,
+            get_project,
+            create_project,
+            update_project,
+            accept_project,
+            reject_project,
+            add_project_member,
+            remove_project_member,
+            suggest_projects,
+            get_project_timeline,
+            list_sessions,
+            get_session,
+            generate_sessions,
+            update_session,
+            accept_session,
+            reject_session
         ])
         .run(tauri::generate_context!());
 

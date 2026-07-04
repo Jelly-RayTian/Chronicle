@@ -1,30 +1,50 @@
 import { createContext, useContext } from 'react';
 
 import type {
+  AcceptProjectRequest,
+  ActivitySession,
+  ActivitySessionDetail,
+  ActivitySessionSummary,
+  AddProjectMemberRequest,
+  AddVersionFamilyMemberRequest,
   ApplicationError,
   ApplicationInfo,
+  CreateProjectRequest,
   DatabaseStatus,
-  IndexedFolder,
-  FolderRegistration,
-  ScanTaskSnapshot,
-  TimelinePage,
-  TimelineRequest,
   FileEvent,
   FileRecord,
-  PathHistoryItem,
-  ScanRun,
-  WatcherStatus,
-  VersionFamilySummary,
-  VersionFamilyDetail,
+  FolderRegistration,
+  GenerateSessionsRequest,
+  IndexedFolder,
+  ListProjectsRequest,
+  ListSessionsRequest,
   ListVersionFamiliesRequest,
-  SuggestVersionFamiliesRequest,
-  VersionFamilyRequest,
-  VersionFamily,
-  RenameVersionFamilyRequest,
-  SplitVersionFamilyRequest,
   MergeVersionFamiliesRequest,
-  AddVersionFamilyMemberRequest,
+  PathHistoryItem,
+  Project,
+  ProjectDetail,
+  ProjectRequest,
+  ProjectSummary,
+  RemoveProjectMemberRequest,
   RemoveVersionFamilyMemberRequest,
+  RenameVersionFamilyRequest,
+  RejectProjectRequest,
+  SplitVersionFamilyRequest,
+  ScanRun,
+  ScanTaskSnapshot,
+  SessionRequest,
+  SuggestProjectsRequest,
+  SuggestVersionFamiliesRequest,
+  TimelineItem,
+  TimelinePage,
+  TimelineRequest,
+  UpdateProjectRequest,
+  UpdateSessionRequest,
+  VersionFamily,
+  VersionFamilyDetail,
+  VersionFamilyRequest,
+  VersionFamilySummary,
+  WatcherStatus,
 } from '../models';
 
 export type Loadable<T> =
@@ -38,6 +58,8 @@ export interface AppData {
   indexedFolders: Loadable<IndexedFolder[]>;
   timeline: Loadable<TimelinePage>;
   versionFamilies: Loadable<VersionFamilySummary[]>;
+  projects: Loadable<ProjectSummary[]>;
+  sessions: Loadable<ActivitySessionSummary[]>;
   folderActionError: ApplicationError | null;
   scans: Readonly<Record<number, ScanTaskSnapshot>>;
   watcherStatuses: Readonly<Record<number, WatcherStatus>>;
@@ -70,6 +92,22 @@ export interface AppData {
   removeVersionFamilyMember: (
     request: RemoveVersionFamilyMemberRequest,
   ) => Promise<VersionFamilyDetail>;
+  listProjects: (request: ListProjectsRequest) => Promise<ProjectSummary[]>;
+  getProject: (request: ProjectRequest) => Promise<ProjectDetail>;
+  createProject: (request: CreateProjectRequest) => Promise<ProjectDetail>;
+  updateProject: (request: UpdateProjectRequest) => Promise<Project>;
+  acceptProject: (request: AcceptProjectRequest) => Promise<Project>;
+  rejectProject: (request: RejectProjectRequest) => Promise<Project>;
+  addProjectMember: (request: AddProjectMemberRequest) => Promise<ProjectDetail>;
+  removeProjectMember: (request: RemoveProjectMemberRequest) => Promise<ProjectDetail>;
+  suggestProjects: (request: SuggestProjectsRequest) => Promise<number>;
+  getProjectTimeline: (request: ProjectRequest) => Promise<TimelineItem[]>;
+  listSessions: (request: ListSessionsRequest) => Promise<ActivitySessionSummary[]>;
+  getSession: (request: SessionRequest) => Promise<ActivitySessionDetail>;
+  generateSessions: (request: GenerateSessionsRequest) => Promise<number>;
+  updateSession: (request: UpdateSessionRequest) => Promise<ActivitySession>;
+  acceptSession: (request: SessionRequest) => Promise<ActivitySession>;
+  rejectSession: (request: SessionRequest) => Promise<ActivitySession>;
   clearFolderActionError: () => void;
   reload: () => void;
 }

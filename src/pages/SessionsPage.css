@@ -1,0 +1,63 @@
+.sessions-page,
+.session-details {
+  padding: 1.5rem;
+  max-width: 960px;
+}
+
+.sessions-page .page-header,
+.session-details .page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.sessions-page h1,
+.session-details h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+}
+
+.sessions-page p,
+.session-details p {
+  margin: 0;
+  color: var(--color-text-secondary, #6b7280);
+}
+
+.privacy-note {
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  border-radius: 0.375rem;
+  background: #ecfdf5;
+  color: #065f46;
+}
+
+.session-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.75rem;
+}
+
+.session-card {
+  text-align: left;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 0.5rem;
+  background: var(--color-surface, #ffffff);
+  cursor: pointer;
+}
+
+.session-card-title {
+  font-weight: 600;
+}
+
+.session-card-meta {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary, #6b7280);
+}
+
+.session-card-summary {
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+}

@@ -169,4 +169,57 @@ describe('Tauri client', () => {
     });
     expect(invoke).toHaveBeenNthCalledWith(11, 'list_all_files');
   });
+
+  it('uses typed project and session command payloads', async () => {
+    const invoke = vi.fn().mockResolvedValue(undefined);
+    const client = createTauriClient(invoke as InvokeFunction);
+
+    await client.listProjects({ status: null });
+    await client.getProject({ projectId: 3 });
+    await client.createProject({ name: 'Essay', description: null, fileIds: [7, 8] });
+    await client.updateProject({ projectId: 3, name: 'Essay v2', description: null });
+    await client.acceptProject({ projectId: 3 });
+    await client.rejectProject({ projectId: 3 });
+    await client.addProjectMember({ projectId: 3, fileId: 9 });
+    await client.removeProjectMember({ projectId: 3, fileId: 9 });
+    await client.suggestProjects({ folderId: null });
+    await client.getProjectTimeline({ projectId: 3 });
+    await client.listSessions({ projectId: null });
+    await client.getSession({ sessionId: 5 });
+    await client.generateSessions({ gapMinutes: null });
+    await client.updateSession({ sessionId: 5, title: 'Focus', projectId: 3 });
+    await client.acceptSession({ sessionId: 5 });
+    await client.rejectSession({ sessionId: 5 });
+
+    expect(invoke).toHaveBeenNthCalledWith(1, 'list_projects', { request: { status: null } });
+    expect(invoke).toHaveBeenNthCalledWith(2, 'get_project', { request: { projectId: 3 } });
+    expect(invoke).toHaveBeenNthCalledWith(3, 'create_project', {
+      request: { name: 'Essay', description: null, fileIds: [7, 8] },
+    });
+    expect(invoke).toHaveBeenNthCalledWith(4, 'update_project', {
+      request: { projectId: 3, name: 'Essay v2', description: null },
+    });
+    expect(invoke).toHaveBeenNthCalledWith(5, 'accept_project', { request: { projectId: 3 } });
+    expect(invoke).toHaveBeenNthCalledWith(6, 'reject_project', { request: { projectId: 3 } });
+    expect(invoke).toHaveBeenNthCalledWith(7, 'add_project_member', {
+      request: { projectId: 3, fileId: 9 },
+    });
+    expect(invoke).toHaveBeenNthCalledWith(8, 'remove_project_member', {
+      request: { projectId: 3, fileId: 9 },
+    });
+    expect(invoke).toHaveBeenNthCalledWith(9, 'suggest_projects', { request: { folderId: null } });
+    expect(invoke).toHaveBeenNthCalledWith(10, 'get_project_timeline', {
+      request: { projectId: 3 },
+    });
+    expect(invoke).toHaveBeenNthCalledWith(11, 'list_sessions', { request: { projectId: null } });
+    expect(invoke).toHaveBeenNthCalledWith(12, 'get_session', { request: { sessionId: 5 } });
+    expect(invoke).toHaveBeenNthCalledWith(13, 'generate_sessions', {
+      request: { gapMinutes: null },
+    });
+    expect(invoke).toHaveBeenNthCalledWith(14, 'update_session', {
+      request: { sessionId: 5, title: 'Focus', projectId: 3 },
+    });
+    expect(invoke).toHaveBeenNthCalledWith(15, 'accept_session', { request: { sessionId: 5 } });
+    expect(invoke).toHaveBeenNthCalledWith(16, 'reject_session', { request: { sessionId: 5 } });
+  });
 });

@@ -262,3 +262,148 @@ export interface ApplicationError {
   messageKey: string;
   retryable: boolean;
 }
+
+export type ProjectStatus = 'suggested' | 'active' | 'archived' | 'rejected';
+export type ProjectDecision = 'accepted' | 'rejected';
+export type ProjectMembershipType = 'manual' | 'suggested';
+export type ActivitySessionStatus = 'auto' | 'edited' | 'accepted' | 'rejected';
+
+export interface Project {
+  id: number;
+  name: string;
+  description: string;
+  status: ProjectStatus;
+  decision: ProjectDecision | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProjectMember {
+  id: number;
+  projectId: number;
+  fileId: number;
+  membershipType: ProjectMembershipType;
+  addedAt: string;
+}
+
+export interface ProjectMemberWithFile {
+  member: ProjectMember;
+  file: FileRecord;
+}
+
+export interface ProjectSuggestion {
+  id: number;
+  projectId: number;
+  fileId: number;
+  confidence: number;
+  evidence: string;
+  source: string;
+  handled: boolean;
+  suggestedAt: string;
+}
+
+export interface ProjectDetail {
+  project: Project;
+  members: ProjectMemberWithFile[];
+  suggestions: ProjectSuggestion[];
+}
+
+export interface ProjectSummary {
+  project: Project;
+  memberCount: number;
+  fileIds: number[];
+}
+
+export interface ActivitySession {
+  id: number;
+  projectId: number | null;
+  title: string;
+  startedAt: string;
+  endedAt: string;
+  eventSummary: string;
+  status: ActivitySessionStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ActivitySessionDetail {
+  session: ActivitySession;
+  project: Project | null;
+  files: FileRecord[];
+  events: FileEvent[];
+}
+
+export interface ActivitySessionSummary {
+  session: ActivitySession;
+  eventCount: number;
+  fileCount: number;
+  projectName: string | null;
+}
+
+export interface ProjectRequest {
+  projectId: number;
+}
+
+export interface CreateProjectRequest {
+  name: string;
+  description: string | null;
+  fileIds: number[];
+}
+
+export interface UpdateProjectRequest {
+  projectId: number;
+  name: string | null;
+  description: string | null;
+}
+
+export interface ListProjectsRequest {
+  status: ProjectStatus | null;
+}
+
+export interface AcceptProjectRequest {
+  projectId: number;
+}
+
+export interface RejectProjectRequest {
+  projectId: number;
+}
+
+export interface AddProjectMemberRequest {
+  projectId: number;
+  fileId: number;
+}
+
+export interface RemoveProjectMemberRequest {
+  projectId: number;
+  fileId: number;
+}
+
+export interface SuggestProjectsRequest {
+  folderId: number | null;
+}
+
+export interface SuggestProjectsResponse {
+  projectsCreated: number;
+}
+
+export interface SessionRequest {
+  sessionId: number;
+}
+
+export interface UpdateSessionRequest {
+  sessionId: number;
+  title: string | null;
+  projectId: number | null;
+}
+
+export interface ListSessionsRequest {
+  projectId: number | null;
+}
+
+export interface GenerateSessionsRequest {
+  gapMinutes: number | null;
+}
+
+export interface GenerateSessionsResponse {
+  sessionsCreated: number;
+}

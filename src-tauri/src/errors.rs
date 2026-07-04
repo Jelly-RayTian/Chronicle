@@ -58,6 +58,14 @@ pub enum ChronicleError {
     FileNotFound,
     #[error("the file is already a member of another version family")]
     DuplicateFamilyMember,
+    #[error("the project was not found")]
+    ProjectNotFound,
+    #[error("the activity session was not found")]
+    SessionNotFound,
+    #[error("the file is already a member of this project")]
+    DuplicateProjectMember,
+    #[error("the project member was not found")]
+    ProjectMemberNotFound,
 }
 
 impl From<ChronicleError> for ApplicationError {
@@ -137,6 +145,22 @@ impl From<ChronicleError> for ApplicationError {
             ChronicleError::DuplicateFamilyMember => ApplicationError::new(
                 "duplicate_family_member",
                 "errors.duplicateFamilyMember",
+                false,
+            ),
+            ChronicleError::ProjectNotFound => {
+                ApplicationError::new("project_not_found", "errors.projectNotFound", false)
+            }
+            ChronicleError::SessionNotFound => {
+                ApplicationError::new("session_not_found", "errors.sessionNotFound", false)
+            }
+            ChronicleError::DuplicateProjectMember => ApplicationError::new(
+                "duplicate_project_member",
+                "errors.duplicateProjectMember",
+                false,
+            ),
+            ChronicleError::ProjectMemberNotFound => ApplicationError::new(
+                "project_member_not_found",
+                "errors.projectMemberNotFound",
                 false,
             ),
         }

@@ -45,3 +45,15 @@ Milestone 5 groups files into version families using metadata-only heuristics:
 Suggestions are generated only when the user clicks “Refresh suggestions”. The UI marks suggested families as pending until accepted or rejected. Chronicle never renames, moves, or deletes original files as part of version-family actions. Chronological ordering within a family uses modification timestamps and is approximate; it does not prove which file is the true latest version.
 
 False positives are possible for files with similar names (e.g. `draft.docx` and `final.docx`). Rejecting or removing a member updates the persisted decision but leaves the underlying file and events untouched.
+
+## Project groups and activity sessions
+
+Milestone 6 adds contextual groupings that do not modify original files:
+
+- **Project suggestions** are heuristic groupings based on folder proximity, filename keywords, temporal co-occurrence, confirmed version families, Git repository membership, and user labels. They are generated only on explicit request and remain user-reviewable.
+- **Git repository detection** checks for a `.git` directory in ancestor paths within the authorized root using `symlink_metadata`; it does not read Git contents or history. Symbolic-link `.git` directories are not followed.
+- **Temporal co-occurrence** groups files with events in the same clock hour. It is a weak signal and is combined with stronger signals before presentation.
+- **Activity sessions** are inferred only from Chronicle file events. Sessions split on time gaps and cap event counts. Boundaries are approximate and may merge or separate real activity depending on the chosen gap threshold.
+- **No productivity metrics**: sessions do not produce scores, rankings, focus ratings, or any measure of user productivity. The UI shows only event counts, file lists, and optional project links.
+
+Rejecting a project or session removes it from active views but does not delete underlying files or events. Edited session titles and project assignments are stored as user decisions.

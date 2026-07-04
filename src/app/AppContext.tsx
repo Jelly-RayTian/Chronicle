@@ -2,11 +2,13 @@ import { type ReactNode, useCallback, useEffect, useState } from 'react';
 
 import { tauriClient, toApplicationError, type TauriClient } from '../lib/tauri/client';
 import type {
+  ActivitySessionSummary,
   ApplicationError,
   ApplicationInfo,
   DatabaseStatus,
   FolderRegistration,
   IndexedFolder,
+  ProjectSummary,
   ScanTaskSnapshot,
   TimelinePage,
   TimelineRequest,
@@ -32,6 +34,8 @@ export const AppProvider = ({ children, client = tauriClient }: AppProviderProps
   const [watcherStatuses, setWatcherStatuses] = useState<Record<number, WatcherStatus>>({});
   const [timelineVersion, setTimelineVersion] = useState(0);
   const [versionFamilies, setVersionFamilies] = useState<Loadable<VersionFamilySummary[]>>(loading);
+  const [projects, setProjects] = useState<Loadable<ProjectSummary[]>>(loading);
+  const [sessions, setSessions] = useState<Loadable<ActivitySessionSummary[]>>(loading);
 
   const reload = useCallback(() => {
     setApplicationInfo(loading);
@@ -40,6 +44,8 @@ export const AppProvider = ({ children, client = tauriClient }: AppProviderProps
     setTimeline(loading);
     setWatcherStatuses({});
     setVersionFamilies(loading);
+    setProjects(loading);
+    setSessions(loading);
     setReloadToken((token) => token + 1);
   }, []);
 
@@ -64,6 +70,24 @@ export const AppProvider = ({ children, client = tauriClient }: AppProviderProps
       setVersionFamilies({ state: 'ready', data: families });
     } catch (error: unknown) {
       setVersionFamilies({ state: 'error', error: toApplicationError(error) });
+    }
+  }, [client]);
+
+  const refreshProjects = useCallback(async () => {
+    try {
+      const data = await client.listProjects({ status: null });
+      setProjects({ state: 'ready', data });
+    } catch (error: unknown) {
+      setProjects({ state: 'error', error: toApplicationError(error) });
+    }
+  }, [client]);
+
+  const refreshSessions = useCallback(async () => {
+    try {
+      const data = await client.listSessions({ projectId: null });
+      setSessions({ state: 'ready', data });
+    } catch (error: unknown) {
+      setSessions({ state: 'error', error: toApplicationError(error) });
     }
   }, [client]);
 
@@ -209,6 +233,8 @@ export const AppProvider = ({ children, client = tauriClient }: AppProviderProps
       setTimeline,
     );
     settle(client.listVersionFamilies({ status: null, folderId: null }), setVersionFamilies);
+    settle(client.listProjects({ status: null }), setProjects);
+    settle(client.listSessions({ projectId: null }), setSessions);
 
     return () => {
       active = false;
@@ -361,12 +387,125 @@ export const AppProvider = ({ children, client = tauriClient }: AppProviderProps
     [client, runVersionFamilyAction],
   );
 
+  const runProjectAction = useCallback(
+    async <T,>(action: () => Promise<T>): Promise<T> => {
+      setFolderActionError(null);
+      try {
+        const result = await action();
+        await refreshProjects();
+        return result;
+      } catch (error: unknown) {
+        setFolderActionError(toApplicationError(error));
+        throw error;
+      }
+    },
+    [refreshProjects],
+  );
+
+  const listProjects = useCallback(
+    (request: import('../models').ListProjectsRequest) => client.listProjects(request),
+    [client],
+  );
+  const getProject = useCallback(
+    (request: import('../models').ProjectRequest) => client.getProject(request),
+    [client],
+  );
+  const createProject = useCallback(
+    (request: import('../models').CreateProjectRequest) =>
+      runProjectAction(() => client.createProject(request)),
+    [client, runProjectAction],
+  );
+  const updateProject = useCallback(
+    (request: import('../models').UpdateProjectRequest) =>
+      runProjectAction(() => client.updateProject(request)),
+    [client, runProjectAction],
+  );
+  const acceptProject = useCallback(
+    (request: import('../models').AcceptProjectRequest) =>
+      runProjectAction(() => client.acceptProject(request)),
+    [client, runProjectAction],
+  );
+  const rejectProject = useCallback(
+    (request: import('../models').RejectProjectRequest) =>
+      runProjectAction(() => client.rejectProject(request)),
+    [client, runProjectAction],
+  );
+  const addProjectMember = useCallback(
+    (request: import('../models').AddProjectMemberRequest) =>
+      runProjectAction(() => client.addProjectMember(request)),
+    [client, runProjectAction],
+  );
+  const removeProjectMember = useCallback(
+    (request: import('../models').RemoveProjectMemberRequest) =>
+      runProjectAction(() => client.removeProjectMember(request)),
+    [client, runProjectAction],
+  );
+  const suggestProjects = useCallback(
+    (request: import('../models').SuggestProjectsRequest) =>
+      runProjectAction(() =>
+        client.suggestProjects(request).then((response) => response.projectsCreated),
+      ),
+    [client, runProjectAction],
+  );
+  const getProjectTimeline = useCallback(
+    (request: import('../models').ProjectRequest) => client.getProjectTimeline(request),
+    [client],
+  );
+
+  const runSessionAction = useCallback(
+    async <T,>(action: () => Promise<T>): Promise<T> => {
+      setFolderActionError(null);
+      try {
+        const result = await action();
+        await refreshSessions();
+        return result;
+      } catch (error: unknown) {
+        setFolderActionError(toApplicationError(error));
+        throw error;
+      }
+    },
+    [refreshSessions],
+  );
+
+  const listSessions = useCallback(
+    (request: import('../models').ListSessionsRequest) => client.listSessions(request),
+    [client],
+  );
+  const getSession = useCallback(
+    (request: import('../models').SessionRequest) => client.getSession(request),
+    [client],
+  );
+  const generateSessions = useCallback(
+    (request: import('../models').GenerateSessionsRequest) =>
+      runSessionAction(() =>
+        client.generateSessions(request).then((response) => response.sessionsCreated),
+      ),
+    [client, runSessionAction],
+  );
+  const updateSession = useCallback(
+    (request: import('../models').UpdateSessionRequest) =>
+      runSessionAction(() => client.updateSession(request)),
+    [client, runSessionAction],
+  );
+  const acceptSession = useCallback(
+    (request: import('../models').SessionRequest) =>
+      runSessionAction(() => client.acceptSession(request)),
+    [client, runSessionAction],
+  );
+  const rejectSession = useCallback(
+    (request: import('../models').SessionRequest) =>
+      runSessionAction(() => client.rejectSession(request)),
+    [client, runSessionAction],
+  );
+
   const value = {
     applicationInfo,
     databaseStatus,
     indexedFolders,
     timeline,
     versionFamilies,
+    projects,
+    sessions,
     folderActionError,
     scans,
     watcherStatuses,
@@ -397,6 +536,22 @@ export const AppProvider = ({ children, client = tauriClient }: AppProviderProps
     mergeVersionFamilies,
     addVersionFamilyMember,
     removeVersionFamilyMember,
+    listProjects,
+    getProject,
+    createProject,
+    updateProject,
+    acceptProject,
+    rejectProject,
+    addProjectMember,
+    removeProjectMember,
+    suggestProjects,
+    getProjectTimeline,
+    listSessions,
+    getSession,
+    generateSessions,
+    updateSession,
+    acceptSession,
+    rejectSession,
     clearFolderActionError: () => setFolderActionError(null),
     reload,
   };

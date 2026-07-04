@@ -1,6 +1,8 @@
 pub mod application;
 pub mod database;
 pub mod folders;
+pub mod projects;
+pub mod sessions;
 pub mod timeline;
 pub mod version_families;
 pub mod watchers;
@@ -29,7 +31,7 @@ mod tests {
             .unwrap_or_else(|error| panic!("in-memory database should open: {error}"));
         let status = get_database_status_impl(&database)
             .unwrap_or_else(|error| panic!("database status should succeed: {error:?}"));
-        assert_eq!(status.schema_version, 6);
+        assert_eq!(status.schema_version, 7);
     }
 
     #[test]

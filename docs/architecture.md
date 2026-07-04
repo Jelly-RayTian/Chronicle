@@ -44,6 +44,10 @@ Timeline queries accept typed filename, extension, event type, folder, UTC date 
 - A family member always references an existing `files` row; the repository rejects duplicate members within the same family.
 - Suggested, confirmed, rejected, and superseded states are explicit in SQLite and reflected by the UI.
 - Version ordering uses metadata timestamps and is approximate; the UI never claims exact version numbers from heuristics.
+- Project groups organize file records without moving files on disk. Projects and sessions are metadata-only abstractions.
+- Project suggestions are generated only on explicit user request and never modify original files or events.
+- Activity sessions are inferred from Chronicle file events only; no keyboard, application, window, browser, mouse, or screenshot data is used.
+- Session boundaries are approximate and use event timestamps; the UI never presents them as objective productivity metrics or scores.
 
 ## Milestone 3 watcher flow
 
@@ -82,3 +86,16 @@ Watcher history is never described as perfectly complete.
 6. Each action is a thin command backed by a repository transaction; success refreshes the family list in React.
 
 Version families are explicitly user-reviewed. Suggestions do not modify files, events, or the `files` snapshot. Chronological ordering is approximate and uses metadata timestamps; it does not claim exact version numbers.
+
+## Milestone 6 project groups and activity sessions
+
+1. The user opens the Projects page and creates a project manually or clicks "Refresh suggestions".
+2. A thin command loads present files, confirmed version families, recent file events, and indexed-folder roots.
+3. The project suggestion service scores folder proximity, filename keywords, temporal co-occurrence, version-family membership, and Git repository membership.
+4. Suggested projects are written to `projects` (`suggested`) with `project_members` (`suggested`) and `project_suggestions` rows.
+5. The user can accept, reject, rename, add/remove members, or create projects manually; each action is a transactional repository mutation.
+6. On the Sessions page, the user clicks "Generate sessions".
+7. The session service sorts `file_events` by `detected_at`, splits by a gap threshold, assigns optional active projects, and writes `activity_sessions` + links.
+8. Users can edit session titles/projects and accept/reject individual sessions.
+
+Projects and sessions are purely contextual metadata. They never rename, move, delete, or read the contents of original files. Session inference uses only Chronicle file events; no external activity sources are consulted.

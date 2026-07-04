@@ -15,11 +15,18 @@ Chronicle uses bundled SQLite through Rust `rusqlite`. Migrations are embedded, 
 - `version_families`: user-reviewable version-family records with `status` (`suggested`, `confirmed`, `rejected`, `superseded`) and `decision` (`pending`, `accepted`, `rejected`).
 - `version_family_members`: ordered members of a family, each pointing to one `files` row. A member stores a zero-based `version_index` and a label used in the UI.
 - `version_family_suggestions`: candidate file pairs produced by the heuristic suggestion pass, with confidence, evidence notes, and whether the suggestion has been `handled`.
+- `projects`: user-created or suggested project groups with `status` (`suggested`, `active`, `archived`, `rejected`) and an optional `decision`.
+- `project_members`: files assigned to a project, either `manual` or `suggested`.
+- `project_suggestions`: candidate file-to-project assignments from the suggestion pass, with confidence, evidence, source, and `handled` state.
+- `activity_sessions`: inferred activity sessions with title, optional project link, start/end times, event summary, and `status` (`auto`, `edited`, `accepted`, `rejected`).
+- `activity_session_events`: links a session to the `file_events` that formed it.
+- `activity_session_files`: distinct files referenced by events in a session.
 
 V3 adds indexes for filename/extension/presence filtering, event-type timeline queries, and per-file event history. Released V1 and V2 migrations are unchanged.
 V4 adds watcher state for Milestone 3. Released V1 through V3 migrations are unchanged.
 V5 adds file identity tracking, path history, rename/move detection, and user confirmation. The file_events table is recreated to support the new event types. Released V1 through V4 migrations are unchanged.
 V6 adds version-family tables, suggestion tracking, and user decision states. Released V1 through V5 migrations are unchanged.
+V7 adds project groups, project membership, project suggestions, activity sessions, session event links, and session file links. Released V1 through V6 migrations are unchanged.
 
 ## Exact reconciliation algorithm
 
@@ -57,6 +64,12 @@ Any error rolls back every step. The scanner then records a failed run and clear
 The suggestion pass is invoked manually by the user and runs after the current `files` snapshot is already published. It groups present files into candidate version families using name-stem similarity, version-token overlap, folder proximity, and optional identity-key agreement. Each candidate pair becomes a `version_family_suggestions` row. Conflicting pairs are reconciled into `version_families` rows with `status = 'suggested'` and `decision = 'pending'`, and their members are written to `version_family_members` in chronological order.
 
 The UI distinguishes suggested (`decision = 'pending'`) families from confirmed (`status = 'confirmed'`, `decision = 'accepted'`) and rejected/superseded records. Accepting a suggestion sets `status = 'confirmed'` and `decision = 'accepted'`. Rejecting sets `decision = 'rejected'`. Splitting a family marks the original as `superseded` and creates a new confirmed family. Merging families marks the source families as `superseded` and creates a new confirmed family. Removing the last member of a confirmed family sets its decision to `rejected`. All mutations commit in SQLite transactions so the family list and its members remain consistent.
+
+## Project groups and activity sessions
+
+Projects are explicit groups of file records. A project may be user-created (`status = 'active'`, members `manual`) or suggested (`status = 'suggested'`, members `suggested`). The suggestion pass considers folder proximity, filename keywords, temporal co-occurrence, confirmed version families, and Git repository membership. Each candidate assignment becomes a `project_suggestions` row. Accepting a suggested project marks it active and converts suggested members to manual; rejecting marks it rejected. Manual membership edits insert or delete `project_members` rows and mark the relevant suggestion as handled.
+
+Activity sessions are generated from `file_events` on explicit user request. The generator sorts events by `detected_at`, splits on a configurable time gap, and caps session size. It assigns an optional `project_id` when session files overlap an active project. Sessions are inserted with `status = 'auto'`. User edits change the title and/or project and set `status = 'edited'`. Accept/reject set `accepted`/`rejected`. The generator replaces existing `auto` sessions on each run, leaving edited or reviewed sessions untouched.
 
 ## Watcher transaction
 

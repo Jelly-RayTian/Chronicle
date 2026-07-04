@@ -51,6 +51,20 @@ content search, AI, analytics, or destructive file operations.
 Milestone 5 does not generate suggestions automatically, modify original files, infer version order
 with certainty, add projects/sessions, content search, AI, analytics, or destructive file operations.
 
+## Milestone 6: Project groups and activity sessions
+
+- User-created project groups that organize related records without moving files on disk.
+- Suggested project groups based on folder proximity, filename keywords, repeated temporal co-occurrence,
+  confirmed version families, Git repository membership, and user labels.
+- Confidence, evidence, accept, reject, edit, and persisted decisions for projects.
+- Activity sessions generated only from Chronicle file events using temporal proximity, project relation,
+  folder relation, and event density.
+- Session start/end, related files, event summary, optional project link, and editable title.
+- Projects page, project details, project timeline, Sessions view, and session details.
+
+Milestone 6 does not add full-text content search, AI, application/window/keyboard/mouse/browser/screenshot
+tracking, automatic file organization, productivity scores, analytics, or destructive file operations.
+
 ## Later exploration
 
 Any identity inference, content indexing, or higher-level grouping requires a separate milestone, privacy review, and tests.

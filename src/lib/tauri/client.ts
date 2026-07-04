@@ -2,31 +2,53 @@ import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 
 import type {
+  AcceptProjectRequest,
+  ActivitySession,
+  ActivitySessionDetail,
+  ActivitySessionSummary,
+  AddProjectMemberRequest,
+  AddVersionFamilyMemberRequest,
   ApplicationError,
   ApplicationInfo,
+  CreateProjectRequest,
   DatabaseStatus,
-  FolderRegistration,
-  IndexedFolder,
   FileEvent,
   FileRecord,
-  PathHistoryItem,
-  ScanRun,
-  TimelinePage,
-  TimelineRequest,
-  ScanTaskSnapshot,
-  WatcherStatus,
-  VersionFamilySummary,
-  VersionFamilyDetail,
+  FolderRegistration,
+  GenerateSessionsRequest,
+  GenerateSessionsResponse,
+  IndexedFolder,
+  ListProjectsRequest,
+  ListSessionsRequest,
   ListVersionFamiliesRequest,
+  MergeVersionFamiliesRequest,
+  PathHistoryItem,
+  Project,
+  ProjectDetail,
+  ProjectRequest,
+  ProjectSummary,
+  RemoveProjectMemberRequest,
+  RemoveVersionFamilyMemberRequest,
+  RenameVersionFamilyRequest,
+  RejectProjectRequest,
+  ScanRun,
+  ScanTaskSnapshot,
+  SessionRequest,
+  SplitVersionFamilyRequest,
+  SuggestProjectsRequest,
+  SuggestProjectsResponse,
   SuggestVersionFamiliesRequest,
   SuggestVersionFamiliesResponse,
-  VersionFamilyRequest,
+  TimelineItem,
+  TimelinePage,
+  TimelineRequest,
+  UpdateProjectRequest,
+  UpdateSessionRequest,
   VersionFamily,
-  RenameVersionFamilyRequest,
-  SplitVersionFamilyRequest,
-  MergeVersionFamiliesRequest,
-  AddVersionFamilyMemberRequest,
-  RemoveVersionFamilyMemberRequest,
+  VersionFamilyDetail,
+  VersionFamilyRequest,
+  VersionFamilySummary,
+  WatcherStatus,
 } from '../../models';
 
 export type InvokeFunction = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
@@ -70,6 +92,22 @@ export interface TauriClient {
   removeVersionFamilyMember(
     request: RemoveVersionFamilyMemberRequest,
   ): Promise<VersionFamilyDetail>;
+  listProjects(request: ListProjectsRequest): Promise<ProjectSummary[]>;
+  getProject(request: ProjectRequest): Promise<ProjectDetail>;
+  createProject(request: CreateProjectRequest): Promise<ProjectDetail>;
+  updateProject(request: UpdateProjectRequest): Promise<Project>;
+  acceptProject(request: AcceptProjectRequest): Promise<Project>;
+  rejectProject(request: RejectProjectRequest): Promise<Project>;
+  addProjectMember(request: AddProjectMemberRequest): Promise<ProjectDetail>;
+  removeProjectMember(request: RemoveProjectMemberRequest): Promise<ProjectDetail>;
+  suggestProjects(request: SuggestProjectsRequest): Promise<SuggestProjectsResponse>;
+  getProjectTimeline(request: ProjectRequest): Promise<TimelineItem[]>;
+  listSessions(request: ListSessionsRequest): Promise<ActivitySessionSummary[]>;
+  getSession(request: SessionRequest): Promise<ActivitySessionDetail>;
+  generateSessions(request: GenerateSessionsRequest): Promise<GenerateSessionsResponse>;
+  updateSession(request: UpdateSessionRequest): Promise<ActivitySession>;
+  acceptSession(request: SessionRequest): Promise<ActivitySession>;
+  rejectSession(request: SessionRequest): Promise<ActivitySession>;
 }
 
 const isApplicationError = (value: unknown): value is ApplicationError => {
@@ -174,6 +212,26 @@ export const createTauriClient = (
     invokeFunction<VersionFamilyDetail>('add_version_family_member', { request }),
   removeVersionFamilyMember: (request) =>
     invokeFunction<VersionFamilyDetail>('remove_version_family_member', { request }),
+  listProjects: (request) => invokeFunction<ProjectSummary[]>('list_projects', { request }),
+  getProject: (request) => invokeFunction<ProjectDetail>('get_project', { request }),
+  createProject: (request) => invokeFunction<ProjectDetail>('create_project', { request }),
+  updateProject: (request) => invokeFunction<Project>('update_project', { request }),
+  acceptProject: (request) => invokeFunction<Project>('accept_project', { request }),
+  rejectProject: (request) => invokeFunction<Project>('reject_project', { request }),
+  addProjectMember: (request) => invokeFunction<ProjectDetail>('add_project_member', { request }),
+  removeProjectMember: (request) =>
+    invokeFunction<ProjectDetail>('remove_project_member', { request }),
+  suggestProjects: (request) =>
+    invokeFunction<SuggestProjectsResponse>('suggest_projects', { request }),
+  getProjectTimeline: (request) =>
+    invokeFunction<TimelineItem[]>('get_project_timeline', { request }),
+  listSessions: (request) => invokeFunction<ActivitySessionSummary[]>('list_sessions', { request }),
+  getSession: (request) => invokeFunction<ActivitySessionDetail>('get_session', { request }),
+  generateSessions: (request) =>
+    invokeFunction<GenerateSessionsResponse>('generate_sessions', { request }),
+  updateSession: (request) => invokeFunction<ActivitySession>('update_session', { request }),
+  acceptSession: (request) => invokeFunction<ActivitySession>('accept_session', { request }),
+  rejectSession: (request) => invokeFunction<ActivitySession>('reject_session', { request }),
 });
 
 export const tauriClient = createTauriClient(invoke);

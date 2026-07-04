@@ -52,6 +52,22 @@ const readyClient = (): TauriClient => ({
   addVersionFamilyMember: vi.fn(),
   removeVersionFamilyMember: vi.fn(),
   listAllFiles: vi.fn().mockResolvedValue([]),
+  listProjects: vi.fn().mockResolvedValue([]),
+  getProject: vi.fn(),
+  createProject: vi.fn(),
+  updateProject: vi.fn(),
+  acceptProject: vi.fn(),
+  rejectProject: vi.fn(),
+  addProjectMember: vi.fn(),
+  removeProjectMember: vi.fn(),
+  suggestProjects: vi.fn().mockResolvedValue({ projectsCreated: 0 }),
+  getProjectTimeline: vi.fn().mockResolvedValue([]),
+  listSessions: vi.fn().mockResolvedValue([]),
+  getSession: vi.fn(),
+  generateSessions: vi.fn().mockResolvedValue({ sessionsCreated: 0 }),
+  updateSession: vi.fn(),
+  acceptSession: vi.fn(),
+  rejectSession: vi.fn(),
 });
 
 const folder: IndexedFolder = {
@@ -94,7 +110,7 @@ describe('Chronicle application', () => {
     expect(screen.getAllByText('Ready')).toHaveLength(2);
   });
 
-  it('navigates between all four pages', async () => {
+  it('navigates between all six pages', async () => {
     const user = userEvent.setup();
     render(<App client={readyClient()} />);
 
@@ -103,6 +119,12 @@ describe('Chronicle application', () => {
 
     await user.click(screen.getByRole('button', { name: 'Versions' }));
     expect(screen.getByRole('heading', { name: 'Versions' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Projects' }));
+    expect(screen.getByRole('heading', { name: 'Projects' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Sessions' }));
+    expect(screen.getByRole('heading', { name: 'Sessions' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Settings' }));
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
@@ -272,6 +294,22 @@ describe('Chronicle application', () => {
       addVersionFamilyMember: () => pending,
       removeVersionFamilyMember: () => pending,
       listAllFiles: () => pending,
+      listProjects: () => pending,
+      getProject: () => pending,
+      createProject: () => pending,
+      updateProject: () => pending,
+      acceptProject: () => pending,
+      rejectProject: () => pending,
+      addProjectMember: () => pending,
+      removeProjectMember: () => pending,
+      suggestProjects: () => pending,
+      getProjectTimeline: () => pending,
+      listSessions: () => pending,
+      getSession: () => pending,
+      generateSessions: () => pending,
+      updateSession: () => pending,
+      acceptSession: () => pending,
+      rejectSession: () => pending,
     };
 
     render(<App client={client} />);

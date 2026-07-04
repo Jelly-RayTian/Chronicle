@@ -1,4 +1,11 @@
-import { ClockCounterClockwise, FolderSimple, GearSix, Stack } from '@phosphor-icons/react';
+import {
+  Briefcase,
+  ClockCounterClockwise,
+  FolderSimple,
+  GearSix,
+  Hourglass,
+  Stack,
+} from '@phosphor-icons/react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -16,6 +23,8 @@ const navigation = [
   { id: 'timeline', icon: ClockCounterClockwise },
   { id: 'indexed-folders', icon: FolderSimple },
   { id: 'versions', icon: Stack },
+  { id: 'projects', icon: Briefcase },
+  { id: 'sessions', icon: Hourglass },
   { id: 'settings', icon: GearSix },
 ] as const;
 
