@@ -8,6 +8,7 @@ pub mod models;
 pub mod platform;
 pub mod scanner;
 pub mod tasks;
+pub mod version_families;
 pub mod watcher;
 
 use tauri::Manager;
@@ -16,12 +17,18 @@ use commands::{
     application::get_application_info,
     database::get_database_status,
     folders::{
-        cancel_folder_scan, get_scan_task, list_indexed_folders, register_indexed_folder,
-        remove_indexed_folder, start_folder_scan,
+        cancel_folder_scan, get_scan_task, list_all_files, list_indexed_folders,
+        register_indexed_folder, remove_indexed_folder, start_folder_scan,
     },
     timeline::{
         confirm_event, get_file_event_history, get_file_path_history, get_scan_history,
         open_timeline_file, query_timeline_page, reject_event, reveal_timeline_file,
+    },
+    version_families::{
+        accept_version_family, add_version_family_member, get_version_family,
+        list_version_families, merge_version_families, reject_version_family,
+        remove_version_family_member, rename_version_family, split_version_family,
+        suggest_version_families,
     },
     watchers::{
         disable_folder_monitoring, enable_folder_monitoring, get_monitoring_status,
@@ -56,6 +63,7 @@ pub fn run() {
             start_folder_scan,
             get_scan_task,
             cancel_folder_scan,
+            list_all_files,
             list_monitoring_statuses,
             get_monitoring_status,
             enable_folder_monitoring,
@@ -69,7 +77,17 @@ pub fn run() {
             confirm_event,
             reject_event,
             open_timeline_file,
-            reveal_timeline_file
+            reveal_timeline_file,
+            list_version_families,
+            get_version_family,
+            suggest_version_families,
+            accept_version_family,
+            reject_version_family,
+            rename_version_family,
+            split_version_family,
+            merge_version_families,
+            add_version_family_member,
+            remove_version_family_member
         ])
         .run(tauri::generate_context!());
 

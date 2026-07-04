@@ -11,7 +11,7 @@ React UI
         -> scanner, event, task, and platform boundaries
 ```
 
-React owns presentation state, debounced filters, timeline grouping, pagination controls, and details panels. It does not enumerate files, construct SQL, infer events, or invoke operating-system processes directly. `src/lib/tauri/client.ts` is the only native invocation boundary.
+React owns presentation state, debounced filters, timeline grouping, pagination controls, version-family review UI, and details panels. It does not enumerate files, construct SQL, infer events, compute version-family similarity, or invoke operating-system processes directly. `src/lib/tauri/client.ts` is the only native invocation boundary.
 
 Rust resolves every scan from an indexed-folder id stored in SQLite. The scanner reads directory entries and metadata inside that authorized root without following symbolic links. Database code owns staging, reconciliation, immutable event persistence, filters, histories, and transaction boundaries. Platform code validates a present path against its authorized root before an explicit open or reveal request.
 
@@ -40,6 +40,10 @@ Timeline queries accept typed filename, extension, event type, folder, UTC date 
 - Identity resolution uses platform-specific mechanisms (Unix inode/device, metadata fingerprinting on other platforms) without reading file contents.
 - Heuristic renames are marked as likely_renamed or possible_move, never as confirmed, and are user-reviewable.
 - No hashing, content search, or future-milestone behavior is present.
+- Version-family suggestions are generated only on explicit user request; they never modify original files.
+- A family member always references an existing `files` row; the repository rejects duplicate members within the same family.
+- Suggested, confirmed, rejected, and superseded states are explicit in SQLite and reflected by the UI.
+- Version ordering uses metadata timestamps and is approximate; the UI never claims exact version numbers from heuristics.
 
 ## Milestone 3 watcher flow
 
@@ -67,3 +71,14 @@ without manufacturing deletion events.
 Startup recovery for explicitly enabled monitoring folders runs the existing complete metadata scan
 before restarting watching. Manual reconciliation remains the normal "Scan metadata" action.
 Watcher history is never described as perfectly complete.
+
+## Milestone 5 version-family flow
+
+1. The user opens the Versions page and clicks "Refresh suggestions".
+2. A thin command loads present files from the current snapshot and runs the heuristic version-family service.
+3. The service normalizes filenames, extracts version tokens, scores name similarity, version-token overlap, folder proximity, and identity-key agreement, and reconciles candidate pairs into family clusters.
+4. Suggested families are written to `version_families` (`status = 'suggested'`, `decision = 'pending'`) with members ordered chronologically by modification time.
+5. React displays the family list, confidence, evidence notes, and member ordering; users can accept, reject, split, merge, rename, add, or remove members.
+6. Each action is a thin command backed by a repository transaction; success refreshes the family list in React.
+
+Version families are explicitly user-reviewed. Suggestions do not modify files, events, or the `files` snapshot. Chronological ordering is approximate and uses metadata timestamps; it does not claim exact version numbers.

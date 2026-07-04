@@ -2,7 +2,7 @@
 
 Chronicle uses bundled SQLite through Rust `rusqlite`. Migrations are embedded, ordered, and tracked by `PRAGMA user_version`.
 
-## Schema through version 5
+## Schema through version 6
 
 - `indexed_folders`: explicitly approved canonical roots and availability state.
 - `files`: the latest complete metadata state. Deleted files remain as `is_present = 0` so history survives. Includes `identity_key` for stable file identification.
@@ -12,10 +12,14 @@ Chronicle uses bundled SQLite through Rust `rusqlite`. Migrations are embedded, 
 - `watcher_states`: explicit monitoring intent, runtime status, coalescing window, last error, and watcher counters.
 - `app_settings`: reserved native settings storage.
 - `file_path_history`: tracks old_path → new_path transitions per file with valid_from, valid_until, confidence, evidence, and event source.
+- `version_families`: user-reviewable version-family records with `status` (`suggested`, `confirmed`, `rejected`, `superseded`) and `decision` (`pending`, `accepted`, `rejected`).
+- `version_family_members`: ordered members of a family, each pointing to one `files` row. A member stores a zero-based `version_index` and a label used in the UI.
+- `version_family_suggestions`: candidate file pairs produced by the heuristic suggestion pass, with confidence, evidence notes, and whether the suggestion has been `handled`.
 
 V3 adds indexes for filename/extension/presence filtering, event-type timeline queries, and per-file event history. Released V1 and V2 migrations are unchanged.
 V4 adds watcher state for Milestone 3. Released V1 through V3 migrations are unchanged.
 V5 adds file identity tracking, path history, rename/move detection, and user confirmation. The file_events table is recreated to support the new event types. Released V1 through V4 migrations are unchanged.
+V6 adds version-family tables, suggestion tracking, and user decision states. Released V1 through V5 migrations are unchanged.
 
 ## Exact reconciliation algorithm
 
@@ -47,6 +51,12 @@ For a completed discovery set `C` and the last published snapshot `P`, scoped to
 12. commits.
 
 Any error rolls back every step. The scanner then records a failed run and clears staging in a separate cleanup transaction. It cannot leave a half-published snapshot or events without the corresponding snapshot.
+
+## Version family suggestions
+
+The suggestion pass is invoked manually by the user and runs after the current `files` snapshot is already published. It groups present files into candidate version families using name-stem similarity, version-token overlap, folder proximity, and optional identity-key agreement. Each candidate pair becomes a `version_family_suggestions` row. Conflicting pairs are reconciled into `version_families` rows with `status = 'suggested'` and `decision = 'pending'`, and their members are written to `version_family_members` in chronological order.
+
+The UI distinguishes suggested (`decision = 'pending'`) families from confirmed (`status = 'confirmed'`, `decision = 'accepted'`) and rejected/superseded records. Accepting a suggestion sets `status = 'confirmed'` and `decision = 'accepted'`. Rejecting sets `decision = 'rejected'`. Splitting a family marks the original as `superseded` and creates a new confirmed family. Merging families marks the source families as `superseded` and creates a new confirmed family. Removing the last member of a confirmed family sets its decision to `rejected`. All mutations commit in SQLite transactions so the family list and its members remain consistent.
 
 ## Watcher transaction
 

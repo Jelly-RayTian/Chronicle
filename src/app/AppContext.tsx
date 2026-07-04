@@ -10,6 +10,7 @@ import type {
   ScanTaskSnapshot,
   TimelinePage,
   TimelineRequest,
+  VersionFamilySummary,
   WatcherStatus,
 } from '../models';
 import { AppDataContext, type Loadable } from './AppDataContext';
@@ -30,6 +31,7 @@ export const AppProvider = ({ children, client = tauriClient }: AppProviderProps
   const [scans, setScans] = useState<Record<number, ScanTaskSnapshot>>({});
   const [watcherStatuses, setWatcherStatuses] = useState<Record<number, WatcherStatus>>({});
   const [timelineVersion, setTimelineVersion] = useState(0);
+  const [versionFamilies, setVersionFamilies] = useState<Loadable<VersionFamilySummary[]>>(loading);
 
   const reload = useCallback(() => {
     setApplicationInfo(loading);
@@ -37,6 +39,7 @@ export const AppProvider = ({ children, client = tauriClient }: AppProviderProps
     setIndexedFolders(loading);
     setTimeline(loading);
     setWatcherStatuses({});
+    setVersionFamilies(loading);
     setReloadToken((token) => token + 1);
   }, []);
 
@@ -53,6 +56,15 @@ export const AppProvider = ({ children, client = tauriClient }: AppProviderProps
     const statuses = await client.listMonitoringStatuses();
     setWatcherStatuses(Object.fromEntries(statuses.map((status) => [status.folderId, status])));
     return statuses;
+  }, [client]);
+
+  const refreshVersionFamilies = useCallback(async () => {
+    try {
+      const families = await client.listVersionFamilies({ status: null, folderId: null });
+      setVersionFamilies({ state: 'ready', data: families });
+    } catch (error: unknown) {
+      setVersionFamilies({ state: 'error', error: toApplicationError(error) });
+    }
   }, [client]);
 
   const addIndexedFolder = useCallback(async (): Promise<FolderRegistration | null> => {
@@ -120,6 +132,8 @@ export const AppProvider = ({ children, client = tauriClient }: AppProviderProps
     },
     [client],
   );
+
+  const listAllFiles = useCallback(() => client.listAllFiles(), [client]);
 
   const applyWatcherAction = useCallback(
     async (action: () => Promise<WatcherStatus>) => {
@@ -194,6 +208,7 @@ export const AppProvider = ({ children, client = tauriClient }: AppProviderProps
       }),
       setTimeline,
     );
+    settle(client.listVersionFamilies({ status: null, folderId: null }), setVersionFamilies);
 
     return () => {
       active = false;
@@ -268,14 +283,8 @@ export const AppProvider = ({ children, client = tauriClient }: AppProviderProps
     (fileId: number) => client.getFilePathHistory(fileId),
     [client],
   );
-  const confirmEvent = useCallback(
-    (eventId: number) => client.confirmEvent(eventId),
-    [client],
-  );
-  const rejectEvent = useCallback(
-    (eventId: number) => client.rejectEvent(eventId),
-    [client],
-  );
+  const confirmEvent = useCallback((eventId: number) => client.confirmEvent(eventId), [client]);
+  const rejectEvent = useCallback((eventId: number) => client.rejectEvent(eventId), [client]);
   const openTimelineFile = useCallback(
     (fileId: number) => client.openTimelineFile(fileId),
     [client],
@@ -285,11 +294,79 @@ export const AppProvider = ({ children, client = tauriClient }: AppProviderProps
     [client],
   );
 
+  const runVersionFamilyAction = useCallback(
+    async <T,>(action: () => Promise<T>): Promise<T> => {
+      setFolderActionError(null);
+      try {
+        const result = await action();
+        await refreshVersionFamilies();
+        return result;
+      } catch (error: unknown) {
+        setFolderActionError(toApplicationError(error));
+        throw error;
+      }
+    },
+    [refreshVersionFamilies],
+  );
+
+  const listVersionFamilies = useCallback(
+    (request: import('../models').ListVersionFamiliesRequest) =>
+      client.listVersionFamilies(request),
+    [client],
+  );
+  const getVersionFamily = useCallback(
+    (request: import('../models').VersionFamilyRequest) => client.getVersionFamily(request),
+    [client],
+  );
+  const suggestVersionFamilies = useCallback(
+    (request: import('../models').SuggestVersionFamiliesRequest) =>
+      runVersionFamilyAction(() =>
+        client.suggestVersionFamilies(request).then((response) => response.familiesCreated),
+      ),
+    [client, runVersionFamilyAction],
+  );
+  const acceptVersionFamily = useCallback(
+    (request: import('../models').VersionFamilyRequest) =>
+      runVersionFamilyAction(() => client.acceptVersionFamily(request)),
+    [client, runVersionFamilyAction],
+  );
+  const rejectVersionFamily = useCallback(
+    (request: import('../models').VersionFamilyRequest) =>
+      runVersionFamilyAction(() => client.rejectVersionFamily(request)),
+    [client, runVersionFamilyAction],
+  );
+  const renameVersionFamily = useCallback(
+    (request: import('../models').RenameVersionFamilyRequest) =>
+      runVersionFamilyAction(() => client.renameVersionFamily(request)),
+    [client, runVersionFamilyAction],
+  );
+  const splitVersionFamily = useCallback(
+    (request: import('../models').SplitVersionFamilyRequest) =>
+      runVersionFamilyAction(() => client.splitVersionFamily(request)),
+    [client, runVersionFamilyAction],
+  );
+  const mergeVersionFamilies = useCallback(
+    (request: import('../models').MergeVersionFamiliesRequest) =>
+      runVersionFamilyAction(() => client.mergeVersionFamilies(request)),
+    [client, runVersionFamilyAction],
+  );
+  const addVersionFamilyMember = useCallback(
+    (request: import('../models').AddVersionFamilyMemberRequest) =>
+      runVersionFamilyAction(() => client.addVersionFamilyMember(request)),
+    [client, runVersionFamilyAction],
+  );
+  const removeVersionFamilyMember = useCallback(
+    (request: import('../models').RemoveVersionFamilyMemberRequest) =>
+      runVersionFamilyAction(() => client.removeVersionFamilyMember(request)),
+    [client, runVersionFamilyAction],
+  );
+
   const value = {
     applicationInfo,
     databaseStatus,
     indexedFolders,
     timeline,
+    versionFamilies,
     folderActionError,
     scans,
     watcherStatuses,
@@ -297,6 +374,7 @@ export const AppProvider = ({ children, client = tauriClient }: AppProviderProps
     removeIndexedFolder,
     startFolderScan,
     cancelFolderScan,
+    listAllFiles,
     enableFolderMonitoring,
     disableFolderMonitoring,
     pauseFolderMonitoring,
@@ -309,6 +387,16 @@ export const AppProvider = ({ children, client = tauriClient }: AppProviderProps
     rejectEvent,
     openTimelineFile,
     revealTimelineFile,
+    listVersionFamilies,
+    getVersionFamily,
+    suggestVersionFamilies,
+    acceptVersionFamily,
+    rejectVersionFamily,
+    renameVersionFamily,
+    splitVersionFamily,
+    mergeVersionFamilies,
+    addVersionFamilyMember,
+    removeVersionFamilyMember,
     clearFolderActionError: () => setFolderActionError(null),
     reload,
   };

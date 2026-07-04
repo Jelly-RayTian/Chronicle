@@ -8,12 +8,25 @@ import type {
   FolderRegistration,
   IndexedFolder,
   FileEvent,
+  FileRecord,
   PathHistoryItem,
   ScanRun,
   TimelinePage,
   TimelineRequest,
   ScanTaskSnapshot,
   WatcherStatus,
+  VersionFamilySummary,
+  VersionFamilyDetail,
+  ListVersionFamiliesRequest,
+  SuggestVersionFamiliesRequest,
+  SuggestVersionFamiliesResponse,
+  VersionFamilyRequest,
+  VersionFamily,
+  RenameVersionFamilyRequest,
+  SplitVersionFamilyRequest,
+  MergeVersionFamiliesRequest,
+  AddVersionFamilyMemberRequest,
+  RemoveVersionFamilyMemberRequest,
 } from '../../models';
 
 export type InvokeFunction = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
@@ -29,6 +42,7 @@ export interface TauriClient {
   startFolderScan(folderId: number): Promise<ScanTaskSnapshot>;
   getScanTask(scanRunId: number): Promise<ScanTaskSnapshot>;
   cancelFolderScan(scanRunId: number): Promise<void>;
+  listAllFiles(): Promise<FileRecord[]>;
   listMonitoringStatuses(): Promise<WatcherStatus[]>;
   enableFolderMonitoring(folderId: number, coalescingWindowMs?: number): Promise<WatcherStatus>;
   disableFolderMonitoring(folderId: number): Promise<WatcherStatus>;
@@ -42,6 +56,20 @@ export interface TauriClient {
   rejectEvent(eventId: number): Promise<void>;
   openTimelineFile(fileId: number): Promise<void>;
   revealTimelineFile(fileId: number): Promise<void>;
+  listVersionFamilies(request: ListVersionFamiliesRequest): Promise<VersionFamilySummary[]>;
+  getVersionFamily(request: VersionFamilyRequest): Promise<VersionFamilyDetail>;
+  suggestVersionFamilies(
+    request: SuggestVersionFamiliesRequest,
+  ): Promise<SuggestVersionFamiliesResponse>;
+  acceptVersionFamily(request: VersionFamilyRequest): Promise<VersionFamily>;
+  rejectVersionFamily(request: VersionFamilyRequest): Promise<VersionFamily>;
+  renameVersionFamily(request: RenameVersionFamilyRequest): Promise<VersionFamily>;
+  splitVersionFamily(request: SplitVersionFamilyRequest): Promise<VersionFamilyDetail>;
+  mergeVersionFamilies(request: MergeVersionFamiliesRequest): Promise<VersionFamilyDetail>;
+  addVersionFamilyMember(request: AddVersionFamilyMemberRequest): Promise<VersionFamilyDetail>;
+  removeVersionFamilyMember(
+    request: RemoveVersionFamilyMemberRequest,
+  ): Promise<VersionFamilyDetail>;
 }
 
 const isApplicationError = (value: unknown): value is ApplicationError => {
@@ -96,6 +124,7 @@ export const createTauriClient = (
     invokeFunction<ScanTaskSnapshot>('start_folder_scan', { folderId }),
   getScanTask: (scanRunId) => invokeFunction<ScanTaskSnapshot>('get_scan_task', { scanRunId }),
   cancelFolderScan: (scanRunId) => invokeFunction<void>('cancel_folder_scan', { scanRunId }),
+  listAllFiles: () => invokeFunction<FileRecord[]>('list_all_files'),
   listMonitoringStatuses: () => invokeFunction<WatcherStatus[]>('list_monitoring_statuses'),
   enableFolderMonitoring: (folderId, coalescingWindowMs = 750) =>
     invokeFunction<WatcherStatus>('enable_folder_monitoring', {
@@ -120,13 +149,31 @@ export const createTauriClient = (
     invokeFunction<ScanRun[]>('get_scan_history', { request: { folderId, limit: 50 } }),
   getFilePathHistory: (fileId) =>
     invokeFunction<PathHistoryItem[]>('get_file_path_history', { request: { fileId, limit: 100 } }),
-  confirmEvent: (eventId) =>
-    invokeFunction<void>('confirm_event', { request: { eventId } }),
-  rejectEvent: (eventId) =>
-    invokeFunction<void>('reject_event', { request: { eventId } }),
+  confirmEvent: (eventId) => invokeFunction<void>('confirm_event', { request: { eventId } }),
+  rejectEvent: (eventId) => invokeFunction<void>('reject_event', { request: { eventId } }),
   openTimelineFile: (fileId) => invokeFunction<void>('open_timeline_file', { request: { fileId } }),
   revealTimelineFile: (fileId) =>
     invokeFunction<void>('reveal_timeline_file', { request: { fileId } }),
+  listVersionFamilies: (request) =>
+    invokeFunction<VersionFamilySummary[]>('list_version_families', { request }),
+  getVersionFamily: (request) =>
+    invokeFunction<VersionFamilyDetail>('get_version_family', { request }),
+  suggestVersionFamilies: (request) =>
+    invokeFunction<SuggestVersionFamiliesResponse>('suggest_version_families', { request }),
+  acceptVersionFamily: (request) =>
+    invokeFunction<VersionFamily>('accept_version_family', { request }),
+  rejectVersionFamily: (request) =>
+    invokeFunction<VersionFamily>('reject_version_family', { request }),
+  renameVersionFamily: (request) =>
+    invokeFunction<VersionFamily>('rename_version_family', { request }),
+  splitVersionFamily: (request) =>
+    invokeFunction<VersionFamilyDetail>('split_version_family', { request }),
+  mergeVersionFamilies: (request) =>
+    invokeFunction<VersionFamilyDetail>('merge_version_families', { request }),
+  addVersionFamilyMember: (request) =>
+    invokeFunction<VersionFamilyDetail>('add_version_family_member', { request }),
+  removeVersionFamilyMember: (request) =>
+    invokeFunction<VersionFamilyDetail>('remove_version_family_member', { request }),
 });
 
 export const tauriClient = createTauriClient(invoke);

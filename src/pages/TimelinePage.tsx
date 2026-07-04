@@ -407,26 +407,55 @@ export const TimelinePage = () => {
             ) : null}
             {selected.event.confidence != null && selected.event.confidence !== 1.0 ? (
               <p className="confidence-note">
-                {t('timeline.details.confidenceNote', { level: t(`timeline.confidence.${selected.event.confidence >= 0.8 ? 'strong' : 'weak'}`) })}
+                {t('timeline.details.confidenceNote', {
+                  level: t(
+                    `timeline.confidence.${selected.event.confidence >= 0.8 ? 'strong' : 'weak'}`,
+                  ),
+                })}
               </p>
             ) : null}
             {selected.event.userConfirmation ? (
               <p className="confidence-note">
                 {t(`timeline.confirmation.${selected.event.userConfirmation}`)}
               </p>
-            ) : (['likely_renamed', 'possible_move'].includes(selected.event.eventType) || (selected.event.confidence != null && selected.event.confidence < 1.0)) ? (
+            ) : ['likely_renamed', 'possible_move'].includes(selected.event.eventType) ||
+              (selected.event.confidence != null && selected.event.confidence < 1.0) ? (
               <div className="confirmation-actions">
                 <button
                   className="button button--small"
                   type="button"
-                  onClick={() => void runAction(async () => { await confirmEvent(selected.event.id); setSelected({ ...selected, event: { ...selected.event, userConfirmation: 'confirmed', userConfirmedAt: new Date().toISOString() } }); })}
+                  onClick={() =>
+                    void runAction(async () => {
+                      await confirmEvent(selected.event.id);
+                      setSelected({
+                        ...selected,
+                        event: {
+                          ...selected.event,
+                          userConfirmation: 'confirmed',
+                          userConfirmedAt: new Date().toISOString(),
+                        },
+                      });
+                    })
+                  }
                 >
                   {t('timeline.details.confirm')}
                 </button>
                 <button
                   className="button button--small"
                   type="button"
-                  onClick={() => void runAction(async () => { await rejectEvent(selected.event.id); setSelected({ ...selected, event: { ...selected.event, userConfirmation: 'rejected', userConfirmedAt: new Date().toISOString() } }); })}
+                  onClick={() =>
+                    void runAction(async () => {
+                      await rejectEvent(selected.event.id);
+                      setSelected({
+                        ...selected,
+                        event: {
+                          ...selected.event,
+                          userConfirmation: 'rejected',
+                          userConfirmedAt: new Date().toISOString(),
+                        },
+                      });
+                    })
+                  }
                 >
                   {t('timeline.details.reject')}
                 </button>

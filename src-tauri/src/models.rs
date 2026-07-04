@@ -184,6 +184,120 @@ pub struct PathHistoryItem {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum VersionFamilyStatus {
+    Suggested,
+    Confirmed,
+    Rejected,
+    Superseded,
+}
+
+impl VersionFamilyStatus {
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Suggested => "suggested",
+            Self::Confirmed => "confirmed",
+            Self::Rejected => "rejected",
+            Self::Superseded => "superseded",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum VersionFamilyDecision {
+    Accepted,
+    Rejected,
+    Split,
+    Merged,
+}
+
+impl VersionFamilyDecision {
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Accepted => "accepted",
+            Self::Rejected => "rejected",
+            Self::Split => "split",
+            Self::Merged => "merged",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct VersionFamily {
+    pub id: i64,
+    pub display_name: String,
+    pub status: VersionFamilyStatus,
+    pub user_decision: Option<VersionFamilyDecision>,
+    pub user_decided_at: Option<String>,
+    pub merged_into_family_id: Option<i64>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct VersionFamilyMember {
+    pub id: i64,
+    pub version_family_id: i64,
+    pub file_id: i64,
+    pub sort_order: i32,
+    pub added_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct VersionFamilyMemberWithFile {
+    pub member: VersionFamilyMember,
+    pub file: FileRecord,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct VersionFamilySuggestion {
+    pub id: i64,
+    pub version_family_id: i64,
+    pub confidence: f64,
+    pub evidence: String,
+    pub detected_at: String,
+    pub source: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct VersionFamilyDetail {
+    pub family: VersionFamily,
+    pub members: Vec<VersionFamilyMemberWithFile>,
+    pub suggestions: Vec<VersionFamilySuggestion>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct VersionFamilySummary {
+    pub family: VersionFamily,
+    pub member_count: usize,
+    pub file_ids: Vec<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct FileVersionCandidate {
+    pub id: i64,
+    pub indexed_folder_id: i64,
+    pub normalized_path: String,
+    pub name: String,
+    pub parent_path: String,
+    pub extension: Option<String>,
+    pub filesystem_modified_at: String,
+    pub first_indexed_at: String,
+    pub identity_key: Option<String>,
+    pub is_present: bool,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct ConfirmEventRequest {
     pub event_id: i64,
@@ -312,6 +426,79 @@ pub struct ScanHistoryRequest {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct FileActionRequest {
+    pub file_id: i64,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ListVersionFamiliesRequest {
+    pub status: Option<VersionFamilyStatus>,
+    pub folder_id: Option<i64>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct VersionFamilyRequest {
+    pub family_id: i64,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SuggestVersionFamiliesRequest {
+    pub folder_id: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SuggestVersionFamiliesResponse {
+    pub families_created: usize,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AcceptVersionFamilyRequest {
+    pub family_id: i64,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RejectVersionFamilyRequest {
+    pub family_id: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RenameVersionFamilyRequest {
+    pub family_id: i64,
+    pub display_name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SplitVersionFamilyRequest {
+    pub family_id: i64,
+    pub file_ids: Vec<i64>,
+    pub display_name: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct MergeVersionFamiliesRequest {
+    pub target_family_id: i64,
+    pub source_family_ids: Vec<i64>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AddVersionFamilyMemberRequest {
+    pub family_id: i64,
+    pub file_id: i64,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoveVersionFamilyMemberRequest {
+    pub family_id: i64,
     pub file_id: i64,
 }
 

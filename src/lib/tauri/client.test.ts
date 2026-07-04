@@ -120,4 +120,53 @@ describe('Tauri client', () => {
       request: { fileId: 5 },
     });
   });
+
+  it('uses typed version-family command payloads', async () => {
+    const invoke = vi.fn().mockResolvedValue(undefined);
+    const client = createTauriClient(invoke as InvokeFunction);
+
+    await client.listVersionFamilies({ status: null, folderId: null });
+    await client.getVersionFamily({ familyId: 3 });
+    await client.suggestVersionFamilies({ folderId: null });
+    await client.acceptVersionFamily({ familyId: 3 });
+    await client.rejectVersionFamily({ familyId: 3 });
+    await client.renameVersionFamily({ familyId: 3, displayName: 'Essay' });
+    await client.splitVersionFamily({ familyId: 3, fileIds: [7, 8], displayName: 'Essay v2' });
+    await client.mergeVersionFamilies({ targetFamilyId: 3, sourceFamilyIds: [4, 5] });
+    await client.addVersionFamilyMember({ familyId: 3, fileId: 9 });
+    await client.removeVersionFamilyMember({ familyId: 3, fileId: 9 });
+    await client.listAllFiles();
+
+    expect(invoke).toHaveBeenNthCalledWith(1, 'list_version_families', {
+      request: { status: null, folderId: null },
+    });
+    expect(invoke).toHaveBeenNthCalledWith(2, 'get_version_family', {
+      request: { familyId: 3 },
+    });
+    expect(invoke).toHaveBeenNthCalledWith(3, 'suggest_version_families', {
+      request: { folderId: null },
+    });
+    expect(invoke).toHaveBeenNthCalledWith(4, 'accept_version_family', {
+      request: { familyId: 3 },
+    });
+    expect(invoke).toHaveBeenNthCalledWith(5, 'reject_version_family', {
+      request: { familyId: 3 },
+    });
+    expect(invoke).toHaveBeenNthCalledWith(6, 'rename_version_family', {
+      request: { familyId: 3, displayName: 'Essay' },
+    });
+    expect(invoke).toHaveBeenNthCalledWith(7, 'split_version_family', {
+      request: { familyId: 3, fileIds: [7, 8], displayName: 'Essay v2' },
+    });
+    expect(invoke).toHaveBeenNthCalledWith(8, 'merge_version_families', {
+      request: { targetFamilyId: 3, sourceFamilyIds: [4, 5] },
+    });
+    expect(invoke).toHaveBeenNthCalledWith(9, 'add_version_family_member', {
+      request: { familyId: 3, fileId: 9 },
+    });
+    expect(invoke).toHaveBeenNthCalledWith(10, 'remove_version_family_member', {
+      request: { familyId: 3, fileId: 9 },
+    });
+    expect(invoke).toHaveBeenNthCalledWith(11, 'list_all_files');
+  });
 });

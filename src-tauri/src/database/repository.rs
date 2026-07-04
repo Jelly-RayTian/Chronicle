@@ -1,4 +1,4 @@
-use std::sync::MutexGuard;
+use std::{collections::HashSet, sync::MutexGuard};
 
 use chrono::{SecondsFormat, Utc};
 use rusqlite::{Connection, OptionalExtension, params, types::Type};
@@ -6,9 +6,12 @@ use rusqlite::{Connection, OptionalExtension, params, types::Type};
 use crate::{
     errors::ChronicleError,
     models::{
-        AvailabilityStatus, FileEvent, FileRecord, IndexedFolder, PresenceFilter, ScanRun,
-        ScanTaskSnapshot, TaskStatus, TimelineItem, TimelinePage, TimelineRequest,
-        WatcherDesiredState, WatcherRuntimeState, WatcherStatus,
+        AvailabilityStatus, FileEvent, FileRecord, FileVersionCandidate, IndexedFolder,
+        ListVersionFamiliesRequest, PresenceFilter, ScanRun, ScanTaskSnapshot, TaskStatus,
+        TimelineItem, TimelinePage, TimelineRequest, VersionFamily, VersionFamilyDecision,
+        VersionFamilyDetail, VersionFamilyMember, VersionFamilyMemberWithFile, VersionFamilyStatus,
+        VersionFamilySuggestion, VersionFamilySummary, WatcherDesiredState, WatcherRuntimeState,
+        WatcherStatus,
     },
     scanner::DiscoveredFile,
     watcher::WatcherObservation,
@@ -89,6 +92,37 @@ fn decode_watcher_runtime(value: &str) -> Result<WatcherRuntimeState, rusqlite::
             0,
             Type::Text,
             format!("unknown watcher runtime state: {unexpected}").into(),
+        )),
+    }
+}
+
+fn decode_family_status(value: &str) -> Result<VersionFamilyStatus, rusqlite::Error> {
+    match value {
+        "suggested" => Ok(VersionFamilyStatus::Suggested),
+        "confirmed" => Ok(VersionFamilyStatus::Confirmed),
+        "rejected" => Ok(VersionFamilyStatus::Rejected),
+        "superseded" => Ok(VersionFamilyStatus::Superseded),
+        unexpected => Err(rusqlite::Error::FromSqlConversionFailure(
+            0,
+            Type::Text,
+            format!("unknown version family status: {unexpected}").into(),
+        )),
+    }
+}
+
+fn decode_family_decision(
+    value: Option<&str>,
+) -> Result<Option<VersionFamilyDecision>, rusqlite::Error> {
+    match value {
+        None | Some("") => Ok(None),
+        Some("accepted") => Ok(Some(VersionFamilyDecision::Accepted)),
+        Some("rejected") => Ok(Some(VersionFamilyDecision::Rejected)),
+        Some("split") => Ok(Some(VersionFamilyDecision::Split)),
+        Some("merged") => Ok(Some(VersionFamilyDecision::Merged)),
+        Some(unexpected) => Err(rusqlite::Error::FromSqlConversionFailure(
+            0,
+            Type::Text,
+            format!("unknown version family decision: {unexpected}").into(),
         )),
     }
 }
@@ -787,6 +821,33 @@ impl Database {
         rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
     }
 
+    pub fn list_all_file_records(&self) -> Result<Vec<FileRecord>, ChronicleError> {
+        let connection = self.connection()?;
+        let mut statement = connection.prepare(
+            "SELECT id, indexed_folder_id, normalized_path, name, parent_path, extension,
+                    size_bytes, filesystem_created_at, filesystem_modified_at,
+                    first_indexed_at, last_seen_at, is_present
+             FROM files ORDER BY normalized_path",
+        )?;
+        let rows = statement.query_map([], |row| {
+            Ok(FileRecord {
+                id: row.get(0)?,
+                indexed_folder_id: row.get(1)?,
+                normalized_path: row.get(2)?,
+                name: row.get(3)?,
+                parent_path: row.get(4)?,
+                extension: row.get(5)?,
+                size_bytes: row.get(6)?,
+                filesystem_created_at: row.get(7)?,
+                filesystem_modified_at: row.get(8)?,
+                first_indexed_at: row.get(9)?,
+                last_seen_at: row.get(10)?,
+                is_present: row.get::<_, i64>(11)? != 0,
+            })
+        })?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+    }
+
     pub fn latest_scan_run(&self, folder_id: i64) -> Result<Option<ScanRun>, ChronicleError> {
         let connection = self.connection()?;
         connection
@@ -1370,5 +1431,674 @@ impl Database {
         }
         transaction.commit()?;
         Ok(events_recorded)
+    }
+
+    pub fn files_for_version_analysis(
+        &self,
+        folder_id: Option<i64>,
+    ) -> Result<Vec<FileVersionCandidate>, ChronicleError> {
+        let connection = self.connection()?;
+        let mut statement = connection.prepare(
+            "SELECT id, indexed_folder_id, normalized_path, name, parent_path, extension,
+                    filesystem_modified_at, first_indexed_at, identity_key, is_present
+             FROM files
+             WHERE (?1 IS NULL OR indexed_folder_id = ?1)
+             ORDER BY id",
+        )?;
+        let rows = statement.query_map(params![folder_id], |row| {
+            Ok(FileVersionCandidate {
+                id: row.get(0)?,
+                indexed_folder_id: row.get(1)?,
+                normalized_path: row.get(2)?,
+                name: row.get(3)?,
+                parent_path: row.get(4)?,
+                extension: row.get(5)?,
+                filesystem_modified_at: row.get(6)?,
+                first_indexed_at: row.get(7)?,
+                identity_key: row.get(8)?,
+                is_present: row.get::<_, i64>(9)? != 0,
+            })
+        })?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+    }
+
+    pub fn existing_family_file_ids(&self) -> Result<HashSet<i64>, ChronicleError> {
+        let connection = self.connection()?;
+        let mut statement = connection.prepare("SELECT file_id FROM version_family_members")?;
+        let rows = statement.query_map([], |row| row.get::<_, i64>(0))?;
+        rows.collect::<Result<HashSet<_>, _>>().map_err(Into::into)
+    }
+
+    pub fn path_history_for_candidates(
+        &self,
+        file_ids: &[i64],
+    ) -> Result<Vec<(i64, String, f64)>, ChronicleError> {
+        if file_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let placeholders = file_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let sql = format!(
+            "SELECT file_id, old_path, confidence
+             FROM file_path_history
+             WHERE file_id IN ({})",
+            placeholders
+        );
+        let connection = self.connection()?;
+        let mut statement = connection.prepare(&sql)?;
+        let rows = statement.query_map(rusqlite::params_from_iter(file_ids.iter()), |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, f64>(2)?,
+            ))
+        })?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+    }
+
+    fn renumber_family_members(
+        transaction: &rusqlite::Transaction,
+        family_id: i64,
+    ) -> Result<(), ChronicleError> {
+        let ids: Vec<i64> = {
+            let mut statement = transaction.prepare(
+                "SELECT id FROM version_family_members
+                 WHERE version_family_id = ?1
+                 ORDER BY sort_order, id",
+            )?;
+            let rows = statement.query_map([family_id], |row| row.get::<_, i64>(0))?;
+            rows.collect::<Result<Vec<_>, _>>()?
+        };
+        for (index, id) in ids.iter().enumerate() {
+            transaction.execute(
+                "UPDATE version_family_members SET sort_order = ?2 WHERE id = ?1",
+                params![
+                    id,
+                    i64::try_from(index).map_err(|_| ChronicleError::NumericOverflow)?
+                ],
+            )?;
+        }
+        Ok(())
+    }
+
+    pub fn persist_version_family_suggestions(
+        &self,
+        families: &[(String, Vec<i64>, f64, String)],
+    ) -> Result<(), ChronicleError> {
+        if families.is_empty() {
+            return Ok(());
+        }
+        let now = now_rfc3339();
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction()?;
+        for (display_name, file_ids, confidence, evidence) in families {
+            transaction.execute(
+                "INSERT INTO version_families (
+                    display_name, status, created_at, updated_at
+                 ) VALUES (?1, 'suggested', ?2, ?2)",
+                params![display_name, now],
+            )?;
+            let family_id = transaction.last_insert_rowid();
+            for (sort_order, file_id) in file_ids.iter().enumerate() {
+                transaction.execute(
+                    "INSERT INTO version_family_members (
+                        version_family_id, file_id, sort_order, added_at
+                     ) VALUES (?1, ?2, ?3, ?4)",
+                    params![
+                        family_id,
+                        file_id,
+                        i64::try_from(sort_order).map_err(|_| ChronicleError::NumericOverflow)?,
+                        now
+                    ],
+                )?;
+            }
+            transaction.execute(
+                "INSERT INTO version_family_suggestions (
+                    version_family_id, confidence, evidence, detected_at, source
+                 ) VALUES (?1, ?2, ?3, ?4, 'heuristic')",
+                params![family_id, confidence, evidence, now],
+            )?;
+        }
+        transaction.commit()?;
+        Ok(())
+    }
+
+    fn map_family(row: &rusqlite::Row<'_>) -> Result<VersionFamily, rusqlite::Error> {
+        let status: String = row.get(2)?;
+        let decision: Option<String> = row.get(3)?;
+        Ok(VersionFamily {
+            id: row.get(0)?,
+            display_name: row.get(1)?,
+            status: decode_family_status(&status)?,
+            user_decision: decode_family_decision(decision.as_deref())?,
+            user_decided_at: row.get(4)?,
+            merged_into_family_id: row.get(5)?,
+            created_at: row.get(6)?,
+            updated_at: row.get(7)?,
+        })
+    }
+
+    pub fn list_version_families(
+        &self,
+        request: &ListVersionFamiliesRequest,
+    ) -> Result<Vec<VersionFamilySummary>, ChronicleError> {
+        let connection = self.connection()?;
+        const SQL: &str =
+            "SELECT vf.id, vf.display_name, vf.status, vf.user_decision, vf.user_decided_at,
+                    vf.merged_into_family_id, vf.created_at, vf.updated_at,
+                    COUNT(vfm.id) as member_count,
+                    GROUP_CONCAT(vfm.file_id) as file_ids
+             FROM version_families vf
+             LEFT JOIN version_family_members vfm ON vfm.version_family_id = vf.id
+             WHERE (?1 IS NULL OR vf.status = ?1)
+               AND (?2 IS NULL OR EXISTS (
+                   SELECT 1 FROM version_family_members m
+                   JOIN files f ON f.id = m.file_id
+                   WHERE m.version_family_id = vf.id AND f.indexed_folder_id = ?2
+               ))
+             GROUP BY vf.id
+             ORDER BY vf.updated_at DESC, vf.id DESC";
+        let mut statement = connection.prepare(SQL)?;
+        let status_value = request.status.map(|status| status.as_str().to_owned());
+        let rows = statement.query_map(params![status_value, request.folder_id], |row| {
+            let family = Self::map_family(row)?;
+            let member_count = row.get::<_, i64>(8)? as usize;
+            let file_ids: Vec<i64> = row
+                .get::<_, Option<String>>(9)?
+                .unwrap_or_default()
+                .split(',')
+                .filter(|value| !value.is_empty())
+                .filter_map(|value| value.parse().ok())
+                .collect();
+            Ok(VersionFamilySummary {
+                family,
+                member_count,
+                file_ids,
+            })
+        })?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+    }
+
+    pub fn get_version_family(
+        &self,
+        family_id: i64,
+    ) -> Result<VersionFamilyDetail, ChronicleError> {
+        let connection = self.connection()?;
+        let family = connection
+            .query_row(
+                "SELECT id, display_name, status, user_decision, user_decided_at,
+                        merged_into_family_id, created_at, updated_at
+                 FROM version_families WHERE id = ?1",
+                [family_id],
+                Self::map_family,
+            )
+            .optional()?
+            .ok_or(ChronicleError::VersionFamilyNotFound)?;
+
+        let mut statement = connection.prepare(
+            "SELECT vfm.id, vfm.version_family_id, vfm.file_id, vfm.sort_order, vfm.added_at,
+                    f.id, f.indexed_folder_id, f.normalized_path, f.name, f.parent_path,
+                    f.extension, f.size_bytes, f.filesystem_created_at, f.filesystem_modified_at,
+                    f.first_indexed_at, f.last_seen_at, f.is_present
+             FROM version_family_members vfm
+             JOIN files f ON f.id = vfm.file_id
+             WHERE vfm.version_family_id = ?1
+             ORDER BY vfm.sort_order, vfm.id",
+        )?;
+        let members = statement
+            .query_map([family_id], |row| {
+                Ok(VersionFamilyMemberWithFile {
+                    member: VersionFamilyMember {
+                        id: row.get(0)?,
+                        version_family_id: row.get(1)?,
+                        file_id: row.get(2)?,
+                        sort_order: row.get(3)?,
+                        added_at: row.get(4)?,
+                    },
+                    file: FileRecord {
+                        id: row.get(5)?,
+                        indexed_folder_id: row.get(6)?,
+                        normalized_path: row.get(7)?,
+                        name: row.get(8)?,
+                        parent_path: row.get(9)?,
+                        extension: row.get(10)?,
+                        size_bytes: row.get(11)?,
+                        filesystem_created_at: row.get(12)?,
+                        filesystem_modified_at: row.get(13)?,
+                        first_indexed_at: row.get(14)?,
+                        last_seen_at: row.get(15)?,
+                        is_present: row.get::<_, i64>(16)? != 0,
+                    },
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let mut suggestions_statement = connection.prepare(
+            "SELECT id, version_family_id, confidence, evidence, detected_at, source
+             FROM version_family_suggestions
+             WHERE version_family_id = ?1
+             ORDER BY detected_at DESC",
+        )?;
+        let suggestions = suggestions_statement
+            .query_map([family_id], |row| {
+                Ok(VersionFamilySuggestion {
+                    id: row.get(0)?,
+                    version_family_id: row.get(1)?,
+                    confidence: row.get(2)?,
+                    evidence: row.get(3)?,
+                    detected_at: row.get(4)?,
+                    source: row.get(5)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(VersionFamilyDetail {
+            family,
+            members,
+            suggestions,
+        })
+    }
+
+    pub fn version_family_suggestions(
+        &self,
+        family_id: i64,
+    ) -> Result<Vec<VersionFamilySuggestion>, ChronicleError> {
+        let connection = self.connection()?;
+        let mut statement = connection.prepare(
+            "SELECT id, version_family_id, confidence, evidence, detected_at, source
+             FROM version_family_suggestions
+             WHERE version_family_id = ?1
+             ORDER BY detected_at DESC",
+        )?;
+        let rows = statement.query_map([family_id], |row| {
+            Ok(VersionFamilySuggestion {
+                id: row.get(0)?,
+                version_family_id: row.get(1)?,
+                confidence: row.get(2)?,
+                evidence: row.get(3)?,
+                detected_at: row.get(4)?,
+                source: row.get(5)?,
+            })
+        })?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+    }
+
+    pub fn update_version_family_decision(
+        &self,
+        family_id: i64,
+        status: VersionFamilyStatus,
+        decision: Option<VersionFamilyDecision>,
+    ) -> Result<VersionFamily, ChronicleError> {
+        let now = now_rfc3339();
+        let changed = self.connection()?.execute(
+            "UPDATE version_families
+             SET status = ?2, user_decision = ?3, user_decided_at = ?4, updated_at = ?4
+             WHERE id = ?1",
+            params![
+                family_id,
+                status.as_str(),
+                decision.map(VersionFamilyDecision::as_str),
+                now
+            ],
+        )?;
+        if changed == 0 {
+            return Err(ChronicleError::VersionFamilyNotFound);
+        }
+        self.get_version_family(family_id)
+            .map(|detail| detail.family)
+    }
+
+    pub fn rename_version_family(
+        &self,
+        family_id: i64,
+        display_name: &str,
+    ) -> Result<VersionFamily, ChronicleError> {
+        let trimmed = display_name.trim();
+        if trimmed.is_empty() || trimmed.len() > 200 {
+            return Err(ChronicleError::PathEncoding);
+        }
+        let now = now_rfc3339();
+        let changed = self.connection()?.execute(
+            "UPDATE version_families
+             SET display_name = ?2, updated_at = ?3
+             WHERE id = ?1",
+            params![family_id, trimmed, now],
+        )?;
+        if changed == 0 {
+            return Err(ChronicleError::VersionFamilyNotFound);
+        }
+        self.get_version_family(family_id)
+            .map(|detail| detail.family)
+    }
+
+    fn ensure_file_is_free_for_family(
+        transaction: &rusqlite::Transaction,
+        family_id: i64,
+        file_id: i64,
+    ) -> Result<(), ChronicleError> {
+        let existing: Option<i64> = transaction
+            .query_row(
+                "SELECT version_family_id FROM version_family_members
+                 WHERE file_id = ?1 AND version_family_id != ?2",
+                params![file_id, family_id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        if existing.is_some() {
+            return Err(ChronicleError::DuplicateFamilyMember);
+        }
+        let file_exists: bool = transaction.query_row(
+            "SELECT EXISTS(SELECT 1 FROM files WHERE id = ?1)",
+            [file_id],
+            |row| row.get(0),
+        )?;
+        if !file_exists {
+            return Err(ChronicleError::FileNotFound);
+        }
+        Ok(())
+    }
+
+    pub fn add_version_family_member(
+        &self,
+        family_id: i64,
+        file_id: i64,
+    ) -> Result<VersionFamilyDetail, ChronicleError> {
+        let now = now_rfc3339();
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction()?;
+        let family_exists: bool = transaction.query_row(
+            "SELECT EXISTS(SELECT 1 FROM version_families WHERE id = ?1)",
+            [family_id],
+            |row| row.get(0),
+        )?;
+        if !family_exists {
+            return Err(ChronicleError::VersionFamilyNotFound);
+        }
+        let already_in_family: bool = transaction.query_row(
+            "SELECT EXISTS(SELECT 1 FROM version_family_members
+                 WHERE version_family_id = ?1 AND file_id = ?2)",
+            params![family_id, file_id],
+            |row| row.get(0),
+        )?;
+        if already_in_family {
+            return Err(ChronicleError::DuplicateFamilyMember);
+        }
+        Self::ensure_file_is_free_for_family(&transaction, family_id, file_id)?;
+        transaction.execute(
+            "INSERT INTO version_family_members (
+                version_family_id, file_id, sort_order, added_at
+             ) VALUES (?1, ?2, (
+                 SELECT COALESCE(MAX(sort_order), -1) + 1
+                 FROM version_family_members
+                 WHERE version_family_id = ?1
+             ), ?3)",
+            params![family_id, file_id, now],
+        )?;
+        Self::renumber_family_members(&transaction, family_id)?;
+        transaction.execute(
+            "UPDATE version_families SET updated_at = ?2 WHERE id = ?1",
+            params![family_id, now],
+        )?;
+        transaction.commit()?;
+        drop(connection);
+        self.get_version_family(family_id)
+    }
+
+    pub fn remove_version_family_member(
+        &self,
+        family_id: i64,
+        file_id: i64,
+    ) -> Result<VersionFamilyDetail, ChronicleError> {
+        let now = now_rfc3339();
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction()?;
+        let changed = transaction.execute(
+            "DELETE FROM version_family_members
+             WHERE version_family_id = ?1 AND file_id = ?2",
+            params![family_id, file_id],
+        )?;
+        if changed == 0 {
+            return Err(ChronicleError::FileNotFound);
+        }
+        Self::renumber_family_members(&transaction, family_id)?;
+        let remaining: i64 = transaction.query_row(
+            "SELECT COUNT(*) FROM version_family_members WHERE version_family_id = ?1",
+            [family_id],
+            |row| row.get(0),
+        )?;
+        if remaining == 0 {
+            transaction.execute(
+                "UPDATE version_families
+                 SET status = 'rejected', user_decision = 'rejected',
+                     user_decided_at = ?2, updated_at = ?2
+                 WHERE id = ?1",
+                params![family_id, now],
+            )?;
+        } else {
+            transaction.execute(
+                "UPDATE version_families SET updated_at = ?2 WHERE id = ?1",
+                params![family_id, now],
+            )?;
+        }
+        transaction.commit()?;
+        drop(connection);
+        self.get_version_family(family_id)
+    }
+
+    pub fn split_version_family(
+        &self,
+        family_id: i64,
+        file_ids: &[i64],
+        display_name: Option<&str>,
+    ) -> Result<VersionFamilyDetail, ChronicleError> {
+        if file_ids.is_empty() {
+            return Err(ChronicleError::FileNotFound);
+        }
+        let now = now_rfc3339();
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction()?;
+
+        let original_name: String = transaction
+            .query_row(
+                "SELECT display_name FROM version_families WHERE id = ?1",
+                [family_id],
+                |row| row.get(0),
+            )
+            .optional()?
+            .ok_or(ChronicleError::VersionFamilyNotFound)?;
+
+        let placeholders = file_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let sql = format!(
+            "SELECT file_id FROM version_family_members
+             WHERE version_family_id = ?1 AND file_id IN ({})",
+            placeholders
+        );
+        let found: HashSet<i64> = {
+            let mut statement = transaction.prepare(&sql)?;
+            let rows = statement.query_map(
+                rusqlite::params_from_iter(std::iter::once(&family_id).chain(file_ids.iter())),
+                |row| row.get::<_, i64>(0),
+            )?;
+            rows.collect::<Result<Vec<_>, _>>()?
+        }
+        .into_iter()
+        .collect();
+        if found.len() != file_ids.len() {
+            return Err(ChronicleError::FileNotFound);
+        }
+
+        let new_name = display_name
+            .map(str::trim)
+            .filter(|value| !value.is_empty() && value.len() <= 200)
+            .map(str::to_owned)
+            .unwrap_or_else(|| format!("{} (split)", original_name));
+
+        transaction.execute(
+            "INSERT INTO version_families (
+                display_name, status, user_decision, user_decided_at, created_at, updated_at
+             ) VALUES (?1, 'confirmed', 'accepted', ?2, ?2, ?2)",
+            params![new_name, now],
+        )?;
+        let new_family_id = transaction.last_insert_rowid();
+
+        for file_id in file_ids {
+            transaction.execute(
+                "DELETE FROM version_family_members
+                 WHERE version_family_id = ?1 AND file_id = ?2",
+                params![family_id, file_id],
+            )?;
+        }
+
+        for (sort_order, file_id) in file_ids.iter().enumerate() {
+            transaction.execute(
+                "INSERT INTO version_family_members (
+                    version_family_id, file_id, sort_order, added_at
+                 ) VALUES (?1, ?2, ?3, ?4)",
+                params![
+                    new_family_id,
+                    file_id,
+                    i64::try_from(sort_order).map_err(|_| ChronicleError::NumericOverflow)?,
+                    now
+                ],
+            )?;
+        }
+
+        Self::renumber_family_members(&transaction, family_id)?;
+        Self::renumber_family_members(&transaction, new_family_id)?;
+
+        transaction.execute(
+            "UPDATE version_families
+             SET status = 'superseded', user_decision = 'split',
+                 user_decided_at = ?2, updated_at = ?2
+             WHERE id = ?1",
+            params![family_id, now],
+        )?;
+
+        transaction.commit()?;
+        drop(connection);
+        self.get_version_family(new_family_id)
+    }
+
+    pub fn merge_version_families(
+        &self,
+        target_family_id: i64,
+        source_family_ids: &[i64],
+    ) -> Result<VersionFamilyDetail, ChronicleError> {
+        if source_family_ids.is_empty() {
+            return self.get_version_family(target_family_id);
+        }
+        if source_family_ids.contains(&target_family_id) {
+            return Err(ChronicleError::VersionFamilyNotFound);
+        }
+        let now = now_rfc3339();
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction()?;
+
+        let target_exists: bool = transaction.query_row(
+            "SELECT EXISTS(SELECT 1 FROM version_families WHERE id = ?1)",
+            [target_family_id],
+            |row| row.get(0),
+        )?;
+        if !target_exists {
+            return Err(ChronicleError::VersionFamilyNotFound);
+        }
+
+        let placeholders = source_family_ids
+            .iter()
+            .map(|_| "?")
+            .collect::<Vec<_>>()
+            .join(",");
+        let sql = format!(
+            "SELECT id FROM version_families WHERE id IN ({})",
+            placeholders
+        );
+        let found: HashSet<i64> = {
+            let mut statement = transaction.prepare(&sql)?;
+            let rows = statement.query_map(
+                rusqlite::params_from_iter(source_family_ids.iter()),
+                |row| row.get::<_, i64>(0),
+            )?;
+            rows.collect::<Result<Vec<_>, _>>()?
+        }
+        .into_iter()
+        .collect();
+        if found.len() != source_family_ids.len() {
+            return Err(ChronicleError::VersionFamilyNotFound);
+        }
+
+        let existing_target_members: HashSet<i64> = {
+            let mut statement = transaction.prepare(
+                "SELECT file_id FROM version_family_members WHERE version_family_id = ?1",
+            )?;
+            let rows = statement.query_map([target_family_id], |row| row.get::<_, i64>(0))?;
+            rows.collect::<Result<Vec<_>, _>>()?
+        }
+        .into_iter()
+        .collect();
+
+        let source_members_sql = format!(
+            "SELECT version_family_id, file_id FROM version_family_members
+             WHERE version_family_id IN ({})",
+            placeholders
+        );
+        let source_members: Vec<(i64, i64)> = {
+            let mut statement = transaction.prepare(&source_members_sql)?;
+            let rows = statement.query_map(
+                rusqlite::params_from_iter(source_family_ids.iter()),
+                |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?)),
+            )?;
+            rows.collect::<Result<Vec<_>, _>>()?
+        };
+
+        let mut next_order: i64 = transaction.query_row(
+            "SELECT COALESCE(MAX(sort_order), -1) + 1 FROM version_family_members WHERE version_family_id = ?1",
+            [target_family_id],
+            |row| row.get(0),
+        )?;
+
+        for (source_family_id, file_id) in source_members {
+            if existing_target_members.contains(&file_id) {
+                transaction.execute(
+                    "DELETE FROM version_family_members
+                     WHERE version_family_id = ?1 AND file_id = ?2",
+                    params![source_family_id, file_id],
+                )?;
+                continue;
+            }
+            transaction.execute(
+                "DELETE FROM version_family_members
+                 WHERE version_family_id = ?1 AND file_id = ?2",
+                params![source_family_id, file_id],
+            )?;
+            transaction.execute(
+                "INSERT INTO version_family_members (
+                    version_family_id, file_id, sort_order, added_at
+                 ) VALUES (?1, ?2, ?3, ?4)",
+                params![target_family_id, file_id, next_order, now],
+            )?;
+            next_order += 1;
+        }
+
+        for source_family_id in source_family_ids {
+            transaction.execute(
+                "UPDATE version_families
+                 SET status = 'superseded', user_decision = 'merged',
+                     merged_into_family_id = ?2, user_decided_at = ?3, updated_at = ?3
+                 WHERE id = ?1",
+                params![source_family_id, target_family_id, now],
+            )?;
+        }
+
+        Self::renumber_family_members(&transaction, target_family_id)?;
+        transaction.execute(
+            "UPDATE version_families
+             SET status = 'confirmed', user_decision = 'accepted',
+                 user_decided_at = ?2, updated_at = ?2
+             WHERE id = ?1 AND status != 'confirmed'",
+            params![target_family_id, now],
+        )?;
+
+        transaction.commit()?;
+        drop(connection);
+        self.get_version_family(target_family_id)
     }
 }

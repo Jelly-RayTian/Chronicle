@@ -52,6 +52,12 @@ pub enum ChronicleError {
     FileUnavailable,
     #[error("a numeric value exceeded the supported range")]
     NumericOverflow,
+    #[error("the version family was not found")]
+    VersionFamilyNotFound,
+    #[error("the file was not found")]
+    FileNotFound,
+    #[error("the file is already a member of another version family")]
+    DuplicateFamilyMember,
 }
 
 impl From<ChronicleError> for ApplicationError {
@@ -120,6 +126,19 @@ impl From<ChronicleError> for ApplicationError {
             ChronicleError::PathEncoding | ChronicleError::NumericOverflow => {
                 ApplicationError::unexpected()
             }
+            ChronicleError::VersionFamilyNotFound => ApplicationError::new(
+                "version_family_not_found",
+                "errors.versionFamilyNotFound",
+                false,
+            ),
+            ChronicleError::FileNotFound => {
+                ApplicationError::new("file_not_found", "errors.fileNotFound", false)
+            }
+            ChronicleError::DuplicateFamilyMember => ApplicationError::new(
+                "duplicate_family_member",
+                "errors.duplicateFamilyMember",
+                false,
+            ),
         }
     }
 }

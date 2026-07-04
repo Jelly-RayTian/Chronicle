@@ -76,6 +76,54 @@ export interface PathHistoryItem {
   detectedAt: string;
 }
 
+export type VersionFamilyStatus = 'suggested' | 'confirmed' | 'rejected' | 'superseded';
+export type VersionFamilyDecision = 'accepted' | 'rejected' | 'split' | 'merged';
+
+export interface VersionFamily {
+  id: number;
+  displayName: string;
+  status: VersionFamilyStatus;
+  userDecision: VersionFamilyDecision | null;
+  userDecidedAt: string | null;
+  mergedIntoFamilyId: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VersionFamilyMember {
+  id: number;
+  versionFamilyId: number;
+  fileId: number;
+  sortOrder: number;
+  addedAt: string;
+}
+
+export interface VersionFamilyMemberWithFile {
+  member: VersionFamilyMember;
+  file: FileRecord;
+}
+
+export interface VersionFamilySuggestion {
+  id: number;
+  versionFamilyId: number;
+  confidence: number;
+  evidence: string;
+  detectedAt: string;
+  source: string;
+}
+
+export interface VersionFamilyDetail {
+  family: VersionFamily;
+  members: VersionFamilyMemberWithFile[];
+  suggestions: VersionFamilySuggestion[];
+}
+
+export interface VersionFamilySummary {
+  family: VersionFamily;
+  memberCount: number;
+  fileIds: number[];
+}
+
 export interface TimelineItem {
   event: FileEvent;
   file: FileRecord;
@@ -131,7 +179,15 @@ export interface TimelineRequest {
   pageSize: number;
   filename: string | null;
   extension: string | null;
-  eventType: 'created' | 'modified' | 'deleted' | 'renamed' | 'moved' | 'likely_renamed' | 'possible_move' | null;
+  eventType:
+    | 'created'
+    | 'modified'
+    | 'deleted'
+    | 'renamed'
+    | 'moved'
+    | 'likely_renamed'
+    | 'possible_move'
+    | null;
   folderId: number | null;
   dateFrom: string | null;
   dateTo: string | null;
@@ -145,6 +201,49 @@ export interface PathHistoryRequest {
 
 export interface ConfirmEventRequest {
   eventId: number;
+}
+
+export interface ListVersionFamiliesRequest {
+  status: VersionFamilyStatus | null;
+  folderId: number | null;
+}
+
+export interface VersionFamilyRequest {
+  familyId: number;
+}
+
+export interface SuggestVersionFamiliesRequest {
+  folderId: number | null;
+}
+
+export interface SuggestVersionFamiliesResponse {
+  familiesCreated: number;
+}
+
+export interface RenameVersionFamilyRequest {
+  familyId: number;
+  displayName: string;
+}
+
+export interface SplitVersionFamilyRequest {
+  familyId: number;
+  fileIds: number[];
+  displayName: string | null;
+}
+
+export interface MergeVersionFamiliesRequest {
+  targetFamilyId: number;
+  sourceFamilyIds: number[];
+}
+
+export interface AddVersionFamilyMemberRequest {
+  familyId: number;
+  fileId: number;
+}
+
+export interface RemoveVersionFamilyMemberRequest {
+  familyId: number;
+  fileId: number;
 }
 
 export interface ApplicationInfo {

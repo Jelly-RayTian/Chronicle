@@ -4,8 +4,8 @@ use crate::{
     database::Database,
     folders,
     models::{
-        ApplicationError, FolderRegistration, IndexedFolder, RemoveIndexedFolderRequest,
-        ScanTaskSnapshot,
+        ApplicationError, FileRecord, FolderRegistration, IndexedFolder,
+        RemoveIndexedFolderRequest, ScanTaskSnapshot,
     },
     scanner,
     tasks::ScanTaskManager,
@@ -76,4 +76,9 @@ pub fn cancel_folder_scan(
         .cancel_scan(scan_run_id)
         .map_err(ApplicationError::from)?;
     tasks.cancel(scan_run_id).map_err(ApplicationError::from)
+}
+
+#[tauri::command]
+pub fn list_all_files(database: State<'_, Database>) -> Result<Vec<FileRecord>, ApplicationError> {
+    database.list_all_file_records().map_err(Into::into)
 }

@@ -5,6 +5,7 @@ import type { TauriClient } from '../lib/tauri/client';
 import { IndexedFoldersPage } from '../pages/IndexedFoldersPage';
 import { SettingsPage } from '../pages/SettingsPage';
 import { TimelinePage } from '../pages/TimelinePage';
+import { VersionsPage } from '../pages/VersionsPage';
 import { AppProvider } from './AppContext';
 import type { PageId } from './navigation';
 
@@ -14,6 +15,7 @@ interface AppProps {
 
 const CurrentPage = ({ page }: { page: PageId }) => {
   if (page === 'indexed-folders') return <IndexedFoldersPage />;
+  if (page === 'versions') return <VersionsPage />;
   if (page === 'settings') return <SettingsPage />;
   return <TimelinePage />;
 };

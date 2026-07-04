@@ -41,6 +41,17 @@ const readyClient = (): TauriClient => ({
   rejectEvent: vi.fn(),
   openTimelineFile: vi.fn(),
   revealTimelineFile: vi.fn(),
+  listVersionFamilies: vi.fn().mockResolvedValue([]),
+  getVersionFamily: vi.fn(),
+  suggestVersionFamilies: vi.fn().mockResolvedValue({ familiesCreated: 0 }),
+  acceptVersionFamily: vi.fn(),
+  rejectVersionFamily: vi.fn(),
+  renameVersionFamily: vi.fn(),
+  splitVersionFamily: vi.fn(),
+  mergeVersionFamilies: vi.fn(),
+  addVersionFamilyMember: vi.fn(),
+  removeVersionFamilyMember: vi.fn(),
+  listAllFiles: vi.fn().mockResolvedValue([]),
 });
 
 const folder: IndexedFolder = {
@@ -83,12 +94,15 @@ describe('Chronicle application', () => {
     expect(screen.getAllByText('Ready')).toHaveLength(2);
   });
 
-  it('navigates between all three pages', async () => {
+  it('navigates between all four pages', async () => {
     const user = userEvent.setup();
     render(<App client={readyClient()} />);
 
     await user.click(screen.getByRole('button', { name: 'Indexed folders' }));
     expect(screen.getByRole('heading', { name: 'Indexed folders' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Versions' }));
+    expect(screen.getByRole('heading', { name: 'Versions' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Settings' }));
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
@@ -247,6 +261,17 @@ describe('Chronicle application', () => {
       rejectEvent: () => pending,
       openTimelineFile: () => pending,
       revealTimelineFile: () => pending,
+      listVersionFamilies: () => pending,
+      getVersionFamily: () => pending,
+      suggestVersionFamilies: () => pending,
+      acceptVersionFamily: () => pending,
+      rejectVersionFamily: () => pending,
+      renameVersionFamily: () => pending,
+      splitVersionFamily: () => pending,
+      mergeVersionFamilies: () => pending,
+      addVersionFamilyMember: () => pending,
+      removeVersionFamilyMember: () => pending,
+      listAllFiles: () => pending,
     };
 
     render(<App client={client} />);

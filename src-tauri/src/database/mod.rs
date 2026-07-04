@@ -85,12 +85,15 @@ mod tests {
             "scan_file_staging",
             "file_path_history",
             "app_settings",
+            "version_families",
+            "version_family_members",
+            "version_family_suggestions",
         ] {
             assert!(names.contains(expected), "missing table: {expected}");
         }
         drop(statement);
         drop(connection);
-        assert_eq!(database.schema_version().unwrap_or_default(), 5);
+        assert_eq!(database.schema_version().unwrap_or_default(), 6);
     }
 
     #[test]

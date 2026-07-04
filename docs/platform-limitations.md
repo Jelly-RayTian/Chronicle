@@ -32,3 +32,16 @@ Rename/move detection during reconciliation:
 - Watcher events do not perform rename/move detection. A rename observed by the watcher may appear as separate deleted and created events, or as a path-based modified event. Run a metadata scan for rename detection.
 
 Rename and move confirmation is not implemented in this milestone. A rename may appear as deleted plus created, and a same-path atomic replacement may appear as modified.
+
+## Version families and manual confirmation
+
+Milestone 5 groups files into version families using metadata-only heuristics:
+
+- **Name-stem similarity**: normalized base names without version tokens must be close (Jaro-Winkler).
+- **Version tokens**: extracted numeric tokens (e.g. `v2`, `03`, `2024`) are compared with Jaccard overlap.
+- **Folder proximity**: files in the same folder score higher; cross-folder matches are still allowed but confidence is reduced.
+- **Identity keys**: on Unix, matching `(device, inode)` strongly supports family membership. On Windows, the metadata fingerprint can falsely match unrelated files of the same size modified in the same second, so identity-key evidence is only counted when the names already share version tokens and the key is a stable `ino:` key.
+
+Suggestions are generated only when the user clicks “Refresh suggestions”. The UI marks suggested families as pending until accepted or rejected. Chronicle never renames, moves, or deletes original files as part of version-family actions. Chronological ordering within a family uses modification timestamps and is approximate; it does not prove which file is the true latest version.
+
+False positives are possible for files with similar names (e.g. `draft.docx` and `final.docx`). Rejecting or removing a member updates the persisted decision but leaves the underlying file and events untouched.

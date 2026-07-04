@@ -1,4 +1,4 @@
-import { ClockCounterClockwise, FolderSimple, GearSix } from '@phosphor-icons/react';
+import { ClockCounterClockwise, FolderSimple, GearSix, Stack } from '@phosphor-icons/react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -15,6 +15,7 @@ interface AppShellProps {
 const navigation = [
   { id: 'timeline', icon: ClockCounterClockwise },
   { id: 'indexed-folders', icon: FolderSimple },
+  { id: 'versions', icon: Stack },
   { id: 'settings', icon: GearSix },
 ] as const;
 

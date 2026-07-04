@@ -29,6 +29,28 @@ Milestone 2 does not add watching, rename/move detection, hashing, version famil
 Milestone 3 does not add confirmed rename/move detection, full hashing, version families, projects,
 sessions, content search, AI, hidden startup monitoring, analytics, or destructive file operations.
 
+## Milestone 4: File identity, rename/move detection, and path history
+
+- Platform-specific `identity_key` (Unix device/inode, Windows metadata fingerprint).
+- Atomic rename/move detection during complete scans.
+- Confirmed and heuristic event types with user-reviewable confidence.
+- `file_path_history` for old_path → new_path transitions.
+
+Milestone 4 does not add automatic confirmation, full hashing, version families, projects, sessions,
+content search, AI, analytics, or destructive file operations.
+
+## Milestone 5: Version-family suggestions and manual confirmation
+
+- Heuristic grouping of related file versions by name-stem, version-token overlap, folder proximity,
+  and stable identity keys.
+- Explicit `suggested` / `confirmed` / `rejected` / `superseded` family states with `pending` / `accepted`
+  / `rejected` decisions stored in SQLite.
+- User actions: accept, reject, split, merge, rename family/members, add member, remove member.
+- Versions page with confidence scores, evidence notes, and approximate chronological ordering.
+
+Milestone 5 does not generate suggestions automatically, modify original files, infer version order
+with certainty, add projects/sessions, content search, AI, analytics, or destructive file operations.
+
 ## Later exploration
 
 Any identity inference, content indexing, or higher-level grouping requires a separate milestone, privacy review, and tests.
