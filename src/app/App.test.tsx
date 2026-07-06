@@ -73,6 +73,7 @@ const readyClient = (): TauriClient => ({
   reindexFolderContent: vi.fn(),
   clearAllContentIndex: vi.fn(),
   searchFiles: vi.fn().mockResolvedValue([]),
+  exportDiagnostics: vi.fn().mockResolvedValue(null),
 });
 
 const folder: IndexedFolder = {
@@ -327,6 +328,7 @@ describe('Chronicle application', () => {
       reindexFolderContent: () => pending,
       clearAllContentIndex: () => pending,
       searchFiles: () => pending,
+      exportDiagnostics: () => pending,
     };
 
     render(<App client={client} />);

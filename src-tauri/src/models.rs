@@ -847,6 +847,30 @@ pub struct DatabaseStatus {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct DiagnosticsCounts {
+    pub indexed_folders: usize,
+    pub present_files: usize,
+    pub deleted_files: usize,
+    pub file_events: usize,
+    pub scan_runs: usize,
+    pub watcher_states: usize,
+    pub version_families: usize,
+    pub projects: usize,
+    pub activity_sessions: usize,
+    pub content_index_documents: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DiagnosticsReport {
+    pub generated_at: String,
+    pub application: ApplicationInfo,
+    pub database: DatabaseStatus,
+    pub counts: DiagnosticsCounts,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct ApplicationError {
     pub code: String,
     pub message_key: String,

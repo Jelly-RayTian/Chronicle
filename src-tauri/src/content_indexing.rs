@@ -727,6 +727,45 @@ mod tests {
     }
 
     #[test]
+    fn clearing_content_index_does_not_delete_original_files() {
+        let directory = tempfile::tempdir()
+            .unwrap_or_else(|error| panic!("temporary directory should exist: {error}"));
+        let root = directory.path().join("root");
+        fs::create_dir(&root).unwrap_or_else(|error| panic!("root should exist: {error}"));
+        let note = root.join("note.txt");
+        fs::write(&note, b"persist on disk")
+            .unwrap_or_else(|error| panic!("file should be written: {error}"));
+        let database = crate::database::Database::open(directory.path().join("chronicle.sqlite3"))
+            .unwrap_or_else(|error| panic!("database should open: {error}"));
+        let folder = crate::folders::register_folder(&database, &root.to_string_lossy())
+            .unwrap_or_else(|error| panic!("folder should register: {error}"))
+            .folder;
+        database
+            .set_folder_content_indexing(folder.id, true, None, None, None)
+            .unwrap_or_else(|error| panic!("enable should succeed: {error}"));
+        scan_folder(&database, &root, folder.id);
+        sync_folder(&database, folder.id)
+            .unwrap_or_else(|error| panic!("sync should succeed: {error}"));
+        clear_all_content_index(&database)
+            .unwrap_or_else(|error| panic!("clear should succeed: {error}"));
+        assert!(
+            note.exists(),
+            "clearing the content index must not delete original files"
+        );
+        let hits = search_files(
+            &database,
+            SearchFilesRequest {
+                query: "persist".to_owned(),
+                mode: ContentSearchMode::Content,
+                folder_id: Some(folder.id),
+                limit: 10,
+            },
+        )
+        .unwrap_or_else(|error| panic!("search should succeed: {error}"));
+        assert!(hits.is_empty());
+    }
+
+    #[test]
     fn clear_all_content_index_removes_everything() {
         let directory = tempfile::tempdir()
             .unwrap_or_else(|error| panic!("temporary directory should exist: {error}"));

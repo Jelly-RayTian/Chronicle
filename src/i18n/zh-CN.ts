@@ -270,6 +270,13 @@ export const zhCN = {
     chinese: '简体中文',
     english: 'English',
     privacyTitle: '隐私基线',
+    diagnosticsTitle: '诊断',
+    diagnosticsDescription:
+      '导出去敏后的诊断报告，仅包含数量统计和状态信息，不含文件路径、文件名或内容。',
+    diagnosticsExport: '导出诊断',
+    diagnosticsExporting: '正在导出…',
+    diagnosticsDone: '诊断报告已保存。',
+    diagnosticsError: '无法导出诊断。',
     localOnly: '仅保存在本机',
     localOnlyBody: 'Chronicle 不会上传文件路径或元数据。',
     contentsUnread: '不读取文件内容',

@@ -121,6 +121,7 @@ export interface TauriClient {
   ): Promise<ReindexFolderContentResponse>;
   clearAllContentIndex(request: ClearContentIndexRequest): Promise<void>;
   searchFiles(request: SearchFilesRequest): Promise<ContentSearchResult[]>;
+  exportDiagnostics(): Promise<string | null>;
 }
 
 const isApplicationError = (value: unknown): value is ApplicationError => {
@@ -253,6 +254,7 @@ export const createTauriClient = (
     invokeFunction<ReindexFolderContentResponse>('reindex_folder_content', { request }),
   clearAllContentIndex: (request) => invokeFunction<void>('clear_all_content_index', { request }),
   searchFiles: (request) => invokeFunction<ContentSearchResult[]>('search_files', { request }),
+  exportDiagnostics: () => invokeFunction<string | null>('export_diagnostics'),
 });
 
 export const tauriClient = createTauriClient(invoke);

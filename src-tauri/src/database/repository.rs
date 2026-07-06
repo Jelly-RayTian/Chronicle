@@ -10,12 +10,12 @@ use crate::{
     errors::ChronicleError,
     models::{
         ActivitySession, ActivitySessionDetail, ActivitySessionStatus, ActivitySessionSummary,
-        AvailabilityStatus, ContentSearchResult, FileEvent, FileRecord, FileVersionCandidate,
-        IndexedFolder, ListProjectsRequest, ListSessionsRequest, ListVersionFamiliesRequest,
-        PresenceFilter, Project, ProjectDecision, ProjectDetail, ProjectMember,
-        ProjectMemberWithFile, ProjectMembershipType, ProjectStatus, ProjectSuggestion,
-        ProjectSummary, ScanRun, ScanTaskSnapshot, TaskStatus, TimelineItem, TimelinePage,
-        TimelineRequest, VersionFamily, VersionFamilyDecision, VersionFamilyDetail,
+        AvailabilityStatus, ContentSearchResult, DiagnosticsCounts, FileEvent, FileRecord,
+        FileVersionCandidate, IndexedFolder, ListProjectsRequest, ListSessionsRequest,
+        ListVersionFamiliesRequest, PresenceFilter, Project, ProjectDecision, ProjectDetail,
+        ProjectMember, ProjectMemberWithFile, ProjectMembershipType, ProjectStatus,
+        ProjectSuggestion, ProjectSummary, ScanRun, ScanTaskSnapshot, TaskStatus, TimelineItem,
+        TimelinePage, TimelineRequest, VersionFamily, VersionFamilyDecision, VersionFamilyDetail,
         VersionFamilyMember, VersionFamilyMemberWithFile, VersionFamilyStatus,
         VersionFamilySuggestion, VersionFamilySummary, WatcherDesiredState, WatcherRuntimeState,
         WatcherStatus,
@@ -352,6 +352,39 @@ impl Database {
     pub fn schema_version(&self) -> Result<u32, ChronicleError> {
         let connection = self.connection()?;
         Ok(connection.query_row("PRAGMA user_version", [], |row| row.get::<_, u32>(0))?)
+    }
+
+    pub fn diagnostic_counts(&self) -> Result<DiagnosticsCounts, ChronicleError> {
+        let connection = self.connection()?;
+        let count = |table: &str| -> Result<usize, ChronicleError> {
+            let mut statement = connection.prepare(&format!("SELECT COUNT(*) FROM {}", table))?;
+            statement
+                .query_row([], |row| row.get::<_, i64>(0))
+                .map(|value| value as usize)
+                .map_err(Into::into)
+        };
+        let present_files = connection.query_row(
+            "SELECT COUNT(*) FROM files WHERE is_present = 1",
+            [],
+            |row| row.get::<_, i64>(0),
+        )? as usize;
+        let deleted_files = connection.query_row(
+            "SELECT COUNT(*) FROM files WHERE is_present = 0",
+            [],
+            |row| row.get::<_, i64>(0),
+        )? as usize;
+        Ok(DiagnosticsCounts {
+            indexed_folders: count("indexed_folders")?,
+            present_files,
+            deleted_files,
+            file_events: count("file_events")?,
+            scan_runs: count("scan_runs")?,
+            watcher_states: count("watcher_states")?,
+            version_families: count("version_families")?,
+            projects: count("projects")?,
+            activity_sessions: count("activity_sessions")?,
+            content_index_documents: count("content_index_documents")?,
+        })
     }
 
     pub fn list_indexed_folders(&self) -> Result<Vec<IndexedFolder>, ChronicleError> {

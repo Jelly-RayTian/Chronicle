@@ -6,6 +6,7 @@ pub mod events;
 pub mod folders;
 pub mod identity;
 pub mod models;
+pub mod performance;
 pub mod platform;
 pub mod projects;
 pub mod scanner;
@@ -23,6 +24,7 @@ use commands::{
         reindex_folder_content, search_files,
     },
     database::get_database_status,
+    diagnostics::export_diagnostics,
     folders::{
         cancel_folder_scan, get_scan_task, list_all_files, list_indexed_folders,
         register_indexed_folder, remove_indexed_folder, start_folder_scan,
@@ -123,7 +125,8 @@ pub fn run() {
             disable_folder_content_indexing,
             reindex_folder_content,
             clear_all_content_index,
-            search_files
+            search_files,
+            export_diagnostics
         ])
         .run(tauri::generate_context!());
 

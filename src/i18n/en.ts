@@ -278,6 +278,13 @@ export const en = {
     chinese: '简体中文',
     english: 'English',
     privacyTitle: 'Privacy baseline',
+    diagnosticsTitle: 'Diagnostics',
+    diagnosticsDescription:
+      'Export a sanitized diagnostics report that includes counts and status only — no file paths, names, or contents.',
+    diagnosticsExport: 'Export diagnostics',
+    diagnosticsExporting: 'Exporting…',
+    diagnosticsDone: 'Diagnostics report saved.',
+    diagnosticsError: 'Could not export diagnostics.',
     localOnly: 'Local only',
     localOnlyBody: 'Chronicle does not upload file paths or metadata.',
     contentsUnread: 'File contents are not read',

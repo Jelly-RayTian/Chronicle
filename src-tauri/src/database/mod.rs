@@ -49,6 +49,7 @@ impl Database {
 mod tests {
     use std::collections::BTreeSet;
 
+    use rusqlite::Connection;
     use tempfile::TempDir;
 
     use super::Database;
@@ -178,5 +179,59 @@ mod tests {
             .unwrap_or_else(|error| panic!("timeline should load: {error}"));
         assert_eq!(events.items.len(), 1);
         assert_eq!(events.items[0].event.event_type, "created");
+    }
+
+    #[test]
+    fn migration_from_v1_preserves_indexed_folder_and_files() {
+        let directory = tempfile::tempdir()
+            .unwrap_or_else(|error| panic!("temporary directory should exist: {error}"));
+        let path = directory.path().join("chronicle.sqlite3");
+        {
+            let connection = Connection::open(&path)
+                .unwrap_or_else(|error| panic!("connection should open: {error}"));
+            connection
+                .execute_batch(include_str!(concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/migrations/V1__initial.sql"
+                )))
+                .unwrap_or_else(|error| panic!("v1 schema should apply: {error}"));
+            connection
+                .execute(
+                    "INSERT INTO indexed_folders
+                     (id, normalized_path, display_name, added_at, monitoring_enabled, availability_status)
+                     VALUES (1, ?1, 'Test', '2026-01-01T00:00:00.000Z', 0, 'available')",
+                    ["C:\\tmp\\root"],
+                )
+                .unwrap_or_else(|error| panic!("folder should insert: {error}"));
+            connection
+                .execute(
+                    "INSERT INTO files
+                     (id, indexed_folder_id, normalized_path, name, extension, size_bytes,
+                      filesystem_created_at, filesystem_modified_at, first_indexed_at, last_seen_at, is_present)
+                     VALUES (1, 1, ?1, 'note.txt', 'txt', 12, NULL,
+                             '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z',
+                             '2026-01-01T00:00:00.000Z', 1)",
+                    ["C:\\tmp\\root\\note.txt"],
+                )
+                .unwrap_or_else(|error| panic!("file should insert: {error}"));
+            connection
+                .execute("PRAGMA user_version = 1", [])
+                .unwrap_or_else(|error| panic!("user_version should set: {error}"));
+        }
+
+        let database = Database::open(&path)
+            .unwrap_or_else(|error| panic!("database should open and migrate: {error}"));
+        assert_eq!(database.schema_version().unwrap_or_default(), 8);
+        let folders = database
+            .list_indexed_folders()
+            .unwrap_or_else(|error| panic!("folders should list: {error}"));
+        assert_eq!(folders.len(), 1);
+        assert_eq!(folders[0].display_name, "Test");
+        let files = database
+            .list_file_records(folders[0].id)
+            .unwrap_or_else(|error| panic!("files should list: {error}"));
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].name, "note.txt");
+        assert!(files[0].is_present);
     }
 }

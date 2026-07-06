@@ -2,23 +2,30 @@
 
 Chronicle is a privacy-first desktop application for rediscovering local files through time and context. It is being built as a real Tauri application, not a website, cloud drive, employee-monitoring tool, analytics dashboard, or AI chat wrapper.
 
-## Milestone 3
+## v1.0.0-rc.1
 
-The current milestone adds opt-in real-time monitoring on top of transactional snapshot reconciliation and a real local timeline:
+Chronicle is approaching its first release candidate. It is a local, privacy-first file activity index built as a real Tauri desktop application—not a website, cloud drive, employee-monitoring tool, analytics dashboard, or AI chat wrapper.
+
+What is included in this release candidate:
 
 - a Tauri 2 desktop shell with React and strict TypeScript;
 - a Rust service core behind typed Tauri commands;
-- a local SQLite database with versioned migrations;
+- a local SQLite database with versioned migrations and upgrade tests;
 - a database-backed Timeline with grouping, search, filters, pagination, details, and histories;
 - native folder selection, persistent indexed roots, availability states, and explicit index removal;
 - cancellable, batched Rust metadata scans with atomic created, modified, deleted, and unchanged reconciliation;
 - explicitly enabled native filesystem monitoring with debounce, metadata recheck, event coalescing, and status/error controls;
 - manual and startup reconciliation scans for missed watcher events;
-- real loading, empty, progress, warning, cancellation, and error states;
+- opt-in local content indexing for `.txt`, `.md`, and supported source-code files, with filename and content search;
+- suggested and user-editable version families;
+- suggested and user-editable projects with manual membership;
+- activity sessions inferred from file events;
+- a sanitized diagnostics export that includes counts and status only—no paths, names, or contents;
 - Simplified Chinese and English interfaces;
-- automated frontend and Rust tests.
+- automated frontend and Rust tests, including migration upgrade and performance checks;
+- Windows installer packaging and a GitHub Actions release workflow.
 
-Milestone 3 does **not** read file contents, hash files, confirm moves or renames, group projects/sessions, add AI, monitor hidden folders, or perform destructive file operations. Watcher history is best-effort and not a perfect audit log.
+Chronicle does **not** read file contents unless content indexing is explicitly enabled for a folder, hash files, use AI, monitor hidden folders, upload data, or perform destructive file operations against original files. Watcher history is best-effort and not a perfect audit log.
 
 ## Privacy guarantees
 
@@ -27,9 +34,11 @@ Milestone 3 does **not** read file contents, hash files, confirm moves or rename
 - Scanning is limited to folders the user explicitly selects.
 - Monitoring is disabled by default and can only be enabled per indexed folder.
 - Metadata scanning never opens file contents and skips symbolic links by default.
+- Content indexing is disabled by default and is opt-in per folder with extension, size, and exclusion controls.
 - Watcher batches recheck metadata only and validate raw events against authorized roots.
 - Failed, cancelled, or interrupted scans preserve the last complete snapshot.
-- Clearing Chronicle data will never delete original files.
+- Clearing Chronicle data or removing an indexed folder will never delete original files.
+- Diagnostics exports contain counts and status only; no file paths, names, or contents are included.
 
 See [Privacy](docs/privacy.md) and [Security](SECURITY.md).
 
@@ -86,9 +95,10 @@ Read [Architecture](docs/architecture.md) and [Database](docs/database.md) for d
 - [Event model](docs/event-model.md)
 - [Privacy](docs/privacy.md)
 - [Platform limitations](docs/platform-limitations.md)
+- [Known limitations](docs/known-limitations.md)
 - [Roadmap](docs/roadmap.md)
 - [Testing](docs/testing.md)
 
 ## Project status
 
-Chronicle is at Milestone 3. The database and timeline are intentionally empty until the user authorizes a folder and completes a scan or explicitly enables monitoring; no fake production data is created.
+Chronicle is at v1.0.0-rc.1. The database and timeline are intentionally empty until the user authorizes a folder and completes a scan or explicitly enables monitoring; no fake production data is created.

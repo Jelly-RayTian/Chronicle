@@ -1,6 +1,7 @@
 pub mod application;
 pub mod content_indexing;
 pub mod database;
+pub mod diagnostics;
 pub mod folders;
 pub mod projects;
 pub mod sessions;
