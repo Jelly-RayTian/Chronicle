@@ -132,6 +132,42 @@
   justify-content: flex-end;
   gap: 8px;
 }
+.content-indexing-panel {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.content-indexing-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.content-indexing-header strong {
+  flex: 1;
+  font-size: 13px;
+}
+.content-indexing-note {
+  margin: 0 0 10px;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.content-indexing-form {
+  display: grid;
+  gap: 10px;
+}
+.content-indexing-form label {
+  display: grid;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.content-indexing-form input {
+  padding: 6px 8px;
+  font-size: 12px;
+}
 .scan-status {
   display: grid;
   gap: 8px;

@@ -1,4 +1,5 @@
 pub mod commands;
+pub mod content_indexing;
 pub mod database;
 pub mod errors;
 pub mod events;
@@ -17,6 +18,10 @@ use tauri::Manager;
 
 use commands::{
     application::get_application_info,
+    content_indexing::{
+        clear_all_content_index, disable_folder_content_indexing, enable_folder_content_indexing,
+        reindex_folder_content, search_files,
+    },
     database::get_database_status,
     folders::{
         cancel_folder_scan, get_scan_task, list_all_files, list_indexed_folders,
@@ -113,7 +118,12 @@ pub fn run() {
             generate_sessions,
             update_session,
             accept_session,
-            reject_session
+            reject_session,
+            enable_folder_content_indexing,
+            disable_folder_content_indexing,
+            reindex_folder_content,
+            clear_all_content_index,
+            search_files
         ])
         .run(tauri::generate_context!());
 

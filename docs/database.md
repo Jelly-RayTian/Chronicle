@@ -27,6 +27,7 @@ V4 adds watcher state for Milestone 3. Released V1 through V3 migrations are unc
 V5 adds file identity tracking, path history, rename/move detection, and user confirmation. The file_events table is recreated to support the new event types. Released V1 through V4 migrations are unchanged.
 V6 adds version-family tables, suggestion tracking, and user decision states. Released V1 through V5 migrations are unchanged.
 V7 adds project groups, project membership, project suggestions, activity sessions, session event links, and session file links. Released V1 through V6 migrations are unchanged.
+V8 adds per-folder optional content-indexing configuration (`content_indexing_enabled`, `content_indexing_extensions`, `content_indexing_max_bytes`, `content_indexing_exclusion_patterns`), the `content_index_documents` tracking table, and the SQLite FTS5 virtual table `content_index_fts`. Released V1 through V7 migrations are unchanged.
 
 ## Exact reconciliation algorithm
 
@@ -71,7 +72,18 @@ Projects are explicit groups of file records. A project may be user-created (`st
 
 Activity sessions are generated from `file_events` on explicit user request. The generator sorts events by `detected_at`, splits on a configurable time gap, and caps session size. It assigns an optional `project_id` when session files overlap an active project. Sessions are inserted with `status = 'auto'`. User edits change the title and/or project and set `status = 'edited'`. Accept/reject set `accepted`/`rejected`. The generator replaces existing `auto` sessions on each run, leaving edited or reviewed sessions untouched.
 
-## Watcher transaction
+## Optional local full-text indexing
+
+Content indexing is disabled by default. Each `indexed_folders` row stores an explicit opt-in flag, allowed extensions, a per-file byte limit, and exclusion patterns. When enabled, Chronicle reads eligible present files (regular files, allowed extension, under the size limit, not matching an exclusion pattern) inside the authorized root, extracts text as lossy UTF-8, and stores it in the local SQLite FTS5 table `content_index_fts`.
+
+The `content_index_documents` table tracks the last indexed size and timestamp for each file. A sync pass compares this state to the current `files` snapshot and reindexes only changed or missing files. Disabling a folder deletes its FTS rows and documents; clearing the index deletes all rows. Removing an indexed folder also clears its content-index rows before the folder row is deleted.
+
+Search supports two modes:
+
+- **Filename search**: SQLite `LIKE` on `files.name`, available regardless of content-indexing state.
+- **Content search**: FTS5 `MATCH` on `content_index_fts`, joined to present `files` rows. Results include a snippet with custom highlight markers; the backend strips those markers and HTML-escapes the snippet before returning it to the UI.
+
+No remote API, cloud upload, or AI inference is used. File contents are never logged.
 
 Each debounced watcher batch is scoped to one indexed folder and commits in one transaction:
 

@@ -57,3 +57,17 @@ Milestone 6 adds contextual groupings that do not modify original files:
 - **No productivity metrics**: sessions do not produce scores, rankings, focus ratings, or any measure of user productivity. The UI shows only event counts, file lists, and optional project links.
 
 Rejecting a project or session removes it from active views but does not delete underlying files or events. Edited session titles and project assignments are stored as user decisions.
+
+## Optional local full-text indexing
+
+Milestone 7 adds privacy-first content search:
+
+- **Opt-in per folder**: content indexing is disabled by default and must be explicitly enabled for each indexed folder.
+- **Supported formats**: `.txt`, `.md`, and a configurable list of source-code extensions. Files outside the allowed list are ignored.
+- **Size limits**: each file must be at or below the configured `content_indexing_max_bytes` (default 1 MiB). Larger files are skipped.
+- **Secret exclusions**: default patterns exclude `.env`, `.env.*`, `*.key`, `*.pem`, `*.crt`, `*.p12`, `*.pfx`, `id_rsa`, `id_ed25519`, `id_ecdsa`, `.htpasswd`, `.npmrc`, `.pypirc`, and `netrc`. Users can edit the exclusion list.
+- **Local-only storage**: extracted text lives in the same local SQLite database as metadata, using FTS5. Nothing is uploaded or sent to a remote service.
+- **No binary extraction**: only lossy UTF-8 text is read. PDF, DOCX, images, and other binary formats are not parsed.
+- **Incremental sync**: after a complete scan or watcher batch, the indexer reconciles the current snapshot with the previous index. Disabling a folder or clearing the index removes the corresponding rows.
+- **Snippet safety**: FTS5 snippets are produced with custom markers, then stripped and HTML-escaped before serialization. The UI never inserts them as raw HTML.
+- **Filename search**: works for all indexed folders regardless of content-indexing state.

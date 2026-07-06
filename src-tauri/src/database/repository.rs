@@ -10,14 +10,15 @@ use crate::{
     errors::ChronicleError,
     models::{
         ActivitySession, ActivitySessionDetail, ActivitySessionStatus, ActivitySessionSummary,
-        AvailabilityStatus, FileEvent, FileRecord, FileVersionCandidate, IndexedFolder,
-        ListProjectsRequest, ListSessionsRequest, ListVersionFamiliesRequest, PresenceFilter,
-        Project, ProjectDecision, ProjectDetail, ProjectMember, ProjectMemberWithFile,
-        ProjectMembershipType, ProjectStatus, ProjectSuggestion, ProjectSummary, ScanRun,
-        ScanTaskSnapshot, TaskStatus, TimelineItem, TimelinePage, TimelineRequest, VersionFamily,
-        VersionFamilyDecision, VersionFamilyDetail, VersionFamilyMember,
-        VersionFamilyMemberWithFile, VersionFamilyStatus, VersionFamilySuggestion,
-        VersionFamilySummary, WatcherDesiredState, WatcherRuntimeState, WatcherStatus,
+        AvailabilityStatus, ContentSearchResult, FileEvent, FileRecord, FileVersionCandidate,
+        IndexedFolder, ListProjectsRequest, ListSessionsRequest, ListVersionFamiliesRequest,
+        PresenceFilter, Project, ProjectDecision, ProjectDetail, ProjectMember,
+        ProjectMemberWithFile, ProjectMembershipType, ProjectStatus, ProjectSuggestion,
+        ProjectSummary, ScanRun, ScanTaskSnapshot, TaskStatus, TimelineItem, TimelinePage,
+        TimelineRequest, VersionFamily, VersionFamilyDecision, VersionFamilyDetail,
+        VersionFamilyMember, VersionFamilyMemberWithFile, VersionFamilyStatus,
+        VersionFamilySuggestion, VersionFamilySummary, WatcherDesiredState, WatcherRuntimeState,
+        WatcherStatus,
     },
     scanner::DiscoveredFile,
     watcher::WatcherObservation,
@@ -262,6 +263,10 @@ fn map_folder(row: &rusqlite::Row<'_>) -> Result<IndexedFolder, rusqlite::Error>
         monitoring_enabled: row.get::<_, i64>(5)? != 0,
         availability_status: decode_availability(&reason)?,
         last_checked_at: row.get(7)?,
+        content_indexing_enabled: row.get::<_, i64>(8)? != 0,
+        content_indexing_extensions: row.get(9)?,
+        content_indexing_max_bytes: row.get(10)?,
+        content_indexing_exclusion_patterns: row.get(11)?,
     })
 }
 
@@ -353,7 +358,9 @@ impl Database {
         let connection = self.connection()?;
         let mut statement = connection.prepare(
             "SELECT id, normalized_path, display_name, added_at, last_successful_scan_at,
-                    monitoring_enabled, availability_reason, last_checked_at
+                    monitoring_enabled, availability_reason, last_checked_at,
+                    content_indexing_enabled, content_indexing_extensions,
+                    content_indexing_max_bytes, content_indexing_exclusion_patterns
              FROM indexed_folders
              ORDER BY added_at ASC, id ASC",
         )?;
@@ -366,7 +373,9 @@ impl Database {
         connection
             .query_row(
                 "SELECT id, normalized_path, display_name, added_at, last_successful_scan_at,
-                        monitoring_enabled, availability_reason, last_checked_at
+                        monitoring_enabled, availability_reason, last_checked_at,
+                        content_indexing_enabled, content_indexing_extensions,
+                        content_indexing_max_bytes, content_indexing_exclusion_patterns
                  FROM indexed_folders WHERE id = ?1",
                 [folder_id],
                 map_folder,
@@ -430,8 +439,9 @@ impl Database {
     }
 
     pub fn remove_indexed_folder(&self, folder_id: i64) -> Result<(), ChronicleError> {
-        let connection = self.connection()?;
-        let running: bool = connection.query_row(
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction()?;
+        let running: bool = transaction.query_row(
             "SELECT EXISTS(SELECT 1 FROM scan_runs WHERE indexed_folder_id = ?1 AND status = 'running')",
             [folder_id],
             |row| row.get(0),
@@ -439,11 +449,20 @@ impl Database {
         if running {
             return Err(ChronicleError::ScanAlreadyRunning);
         }
+        transaction.execute(
+            "DELETE FROM content_index_fts WHERE doc_id IN (SELECT id FROM files WHERE indexed_folder_id = ?1)",
+            [folder_id],
+        )?;
+        transaction.execute(
+            "DELETE FROM content_index_documents WHERE file_id IN (SELECT id FROM files WHERE indexed_folder_id = ?1)",
+            [folder_id],
+        )?;
         let changed =
-            connection.execute("DELETE FROM indexed_folders WHERE id = ?1", [folder_id])?;
+            transaction.execute("DELETE FROM indexed_folders WHERE id = ?1", [folder_id])?;
         if changed == 0 {
             return Err(ChronicleError::FolderNotFound);
         }
+        transaction.commit()?;
         Ok(())
     }
 
@@ -3066,4 +3085,229 @@ impl Database {
         drop(connection);
         self.get_session(session_id).map(|detail| detail.session)
     }
+
+    pub fn set_folder_content_indexing(
+        &self,
+        folder_id: i64,
+        enabled: bool,
+        extensions: Option<&str>,
+        max_bytes: Option<i64>,
+        exclusion_patterns: Option<&str>,
+    ) -> Result<IndexedFolder, ChronicleError> {
+        let connection = self.connection()?;
+        if let Some(value) = extensions {
+            connection.execute(
+                "UPDATE indexed_folders SET content_indexing_extensions = ?2 WHERE id = ?1",
+                params![folder_id, value],
+            )?;
+        }
+        if let Some(value) = max_bytes {
+            connection.execute(
+                "UPDATE indexed_folders SET content_indexing_max_bytes = ?2 WHERE id = ?1",
+                params![folder_id, value],
+            )?;
+        }
+        if let Some(value) = exclusion_patterns {
+            connection.execute(
+                "UPDATE indexed_folders SET content_indexing_exclusion_patterns = ?2 WHERE id = ?1",
+                params![folder_id, value],
+            )?;
+        }
+        connection.execute(
+            "UPDATE indexed_folders SET content_indexing_enabled = ?2 WHERE id = ?1",
+            params![folder_id, if enabled { 1 } else { 0 }],
+        )?;
+        drop(connection);
+        self.get_indexed_folder(folder_id)
+    }
+
+    pub fn list_present_files_for_content_indexing(
+        &self,
+        folder_id: i64,
+    ) -> Result<Vec<FileRecord>, ChronicleError> {
+        let connection = self.connection()?;
+        let mut statement = connection.prepare(
+            "SELECT id, indexed_folder_id, normalized_path, name, parent_path, extension,
+                    size_bytes, filesystem_created_at, filesystem_modified_at,
+                    first_indexed_at, last_seen_at, is_present
+             FROM files
+             WHERE indexed_folder_id = ?1 AND is_present = 1",
+        )?;
+        let rows = statement.query_map([folder_id], map_content_file_record)?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+    }
+
+    pub fn content_indexed_documents_for_folder(
+        &self,
+        folder_id: i64,
+    ) -> Result<Vec<(i64, i64, String, String)>, ChronicleError> {
+        let connection = self.connection()?;
+        let mut statement = connection.prepare(
+            "SELECT d.file_id, d.size_bytes, d.indexed_at, f.filesystem_modified_at
+             FROM content_index_documents d
+             JOIN files f ON f.id = d.file_id
+             WHERE f.indexed_folder_id = ?1 AND f.is_present = 1",
+        )?;
+        let rows = statement.query_map([folder_id], |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, i64>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+            ))
+        })?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+    }
+
+    pub fn content_index_document(
+        &self,
+        file_id: i64,
+        content: &str,
+        size_bytes: i64,
+        word_count: usize,
+    ) -> Result<(), ChronicleError> {
+        let now = now_rfc3339();
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction()?;
+        transaction.execute("DELETE FROM content_index_fts WHERE doc_id = ?1", [file_id])?;
+        transaction.execute(
+            "DELETE FROM content_index_documents WHERE file_id = ?1",
+            [file_id],
+        )?;
+        transaction.execute(
+            "INSERT INTO content_index_fts (doc_id, content) VALUES (?1, ?2)",
+            params![file_id, content],
+        )?;
+        transaction.execute(
+            "INSERT INTO content_index_documents
+             (file_id, indexed_at, size_bytes, word_count)
+             VALUES (?1, ?2, ?3, ?4)",
+            params![
+                file_id,
+                now,
+                size_bytes,
+                i64::try_from(word_count).unwrap_or(0)
+            ],
+        )?;
+        transaction.commit()?;
+        Ok(())
+    }
+
+    pub fn delete_content_index_for_file(&self, file_id: i64) -> Result<(), ChronicleError> {
+        let connection = self.connection()?;
+        connection.execute("DELETE FROM content_index_fts WHERE doc_id = ?1", [file_id])?;
+        connection.execute(
+            "DELETE FROM content_index_documents WHERE file_id = ?1",
+            [file_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete_content_index_for_folder(&self, folder_id: i64) -> Result<(), ChronicleError> {
+        let connection = self.connection()?;
+        connection.execute(
+            "DELETE FROM content_index_fts WHERE doc_id IN (SELECT id FROM files WHERE indexed_folder_id = ?1)",
+            [folder_id],
+        )?;
+        connection.execute(
+            "DELETE FROM content_index_documents WHERE file_id IN (SELECT id FROM files WHERE indexed_folder_id = ?1)",
+            [folder_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn clear_content_index(&self) -> Result<(), ChronicleError> {
+        let connection = self.connection()?;
+        connection.execute("DELETE FROM content_index_fts", [])?;
+        connection.execute("DELETE FROM content_index_documents", [])?;
+        Ok(())
+    }
+
+    pub fn search_content(
+        &self,
+        query: &str,
+        folder_id: Option<i64>,
+        limit: u32,
+    ) -> Result<Vec<ContentSearchResult>, ChronicleError> {
+        let connection = self.connection()?;
+        let mut statement = connection.prepare(
+            "SELECT f.id, f.indexed_folder_id, f.normalized_path, f.name, f.parent_path,
+                    f.extension, f.size_bytes, f.filesystem_created_at, f.filesystem_modified_at,
+                    f.first_indexed_at, f.last_seen_at, f.is_present,
+                    snippet(content_index_fts, 0, '<<<', '>>>', '...', 30) AS snippet,
+                    rank
+             FROM content_index_fts
+             JOIN files f ON f.id = content_index_fts.doc_id
+             WHERE content_index_fts MATCH ?1 AND f.is_present = 1
+               AND (?2 IS NULL OR f.indexed_folder_id = ?2)
+             ORDER BY rank
+             LIMIT ?3",
+        )?;
+        let rows = statement.query_map(params![query, folder_id, i64::from(limit)], |row| {
+            let file = FileRecord {
+                id: row.get(0)?,
+                indexed_folder_id: row.get(1)?,
+                normalized_path: row.get(2)?,
+                name: row.get(3)?,
+                parent_path: row.get(4)?,
+                extension: row.get(5)?,
+                size_bytes: row.get(6)?,
+                filesystem_created_at: row.get(7)?,
+                filesystem_modified_at: row.get(8)?,
+                first_indexed_at: row.get(9)?,
+                last_seen_at: row.get(10)?,
+                is_present: row.get::<_, i64>(11)? != 0,
+            };
+            let snippet: String = row.get(12)?;
+            let rank: f64 = row.get(13)?;
+            Ok(ContentSearchResult {
+                file,
+                snippet,
+                rank,
+            })
+        })?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+    }
+
+    pub fn search_filename(
+        &self,
+        query: &str,
+        folder_id: Option<i64>,
+        limit: u32,
+    ) -> Result<Vec<FileRecord>, ChronicleError> {
+        let connection = self.connection()?;
+        let mut statement = connection.prepare(
+            "SELECT id, indexed_folder_id, normalized_path, name, parent_path, extension,
+                    size_bytes, filesystem_created_at, filesystem_modified_at,
+                    first_indexed_at, last_seen_at, is_present
+             FROM files
+             WHERE is_present = 1 AND name LIKE ?1
+               AND (?2 IS NULL OR indexed_folder_id = ?2)
+             ORDER BY id
+             LIMIT ?3",
+        )?;
+        let pattern = format!("%{query}%");
+        let rows = statement.query_map(
+            params![pattern, folder_id, i64::from(limit)],
+            map_content_file_record,
+        )?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+    }
+}
+
+fn map_content_file_record(row: &rusqlite::Row<'_>) -> Result<FileRecord, rusqlite::Error> {
+    Ok(FileRecord {
+        id: row.get(0)?,
+        indexed_folder_id: row.get(1)?,
+        normalized_path: row.get(2)?,
+        name: row.get(3)?,
+        parent_path: row.get(4)?,
+        extension: row.get(5)?,
+        size_bytes: row.get(6)?,
+        filesystem_created_at: row.get(7)?,
+        filesystem_modified_at: row.get(8)?,
+        first_indexed_at: row.get(9)?,
+        last_seen_at: row.get(10)?,
+        is_present: row.get::<_, i64>(11)? != 0,
+    })
 }

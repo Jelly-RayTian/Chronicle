@@ -4,6 +4,7 @@ export type PageId =
   | 'versions'
   | 'projects'
   | 'sessions'
+  | 'search'
   | 'settings';
 
 export const pageTranslationKey: Record<PageId, string> = {
@@ -12,5 +13,6 @@ export const pageTranslationKey: Record<PageId, string> = {
   versions: 'navigation.versions',
   projects: 'navigation.projects',
   sessions: 'navigation.sessions',
+  search: 'navigation.search',
   settings: 'navigation.settings',
 };

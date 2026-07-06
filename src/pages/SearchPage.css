@@ -1,0 +1,113 @@
+.search-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.search-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.search-input-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.search-input-row input[type='text'] {
+  flex: 1;
+  min-width: 0;
+}
+
+.search-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.search-filters label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.search-mode-group {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.search-mode-group button {
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-background);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.search-mode-group button:first-child {
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+
+.search-mode-group button:last-child {
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.search-mode-group button.is-active {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+.search-results-meta {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.search-results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.search-result-card {
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.search-result-card h4 {
+  margin: 0 0 0.25rem;
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+.search-result-card .result-path {
+  margin: 0 0 0.5rem;
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  word-break: break-all;
+}
+
+.search-result-card .result-snippet {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.search-result-card .result-snippet mark {
+  background: transparent;
+  color: inherit;
+  font-weight: 600;
+}

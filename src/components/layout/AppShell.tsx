@@ -4,6 +4,7 @@ import {
   FolderSimple,
   GearSix,
   Hourglass,
+  MagnifyingGlass,
   Stack,
 } from '@phosphor-icons/react';
 import type { ReactNode } from 'react';
@@ -25,6 +26,7 @@ const navigation = [
   { id: 'versions', icon: Stack },
   { id: 'projects', icon: Briefcase },
   { id: 'sessions', icon: Hourglass },
+  { id: 'search', icon: MagnifyingGlass },
   { id: 'settings', icon: GearSix },
 ] as const;
 

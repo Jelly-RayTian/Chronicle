@@ -8,6 +8,7 @@ use std::{
 use chrono::{DateTime, SecondsFormat, Utc};
 
 use crate::{
+    content_indexing,
     database::Database,
     errors::ChronicleError,
     identity,
@@ -232,7 +233,9 @@ pub fn start_scan(
                         counts.errors,
                     )
                 });
-                if completion.is_err() {
+                if completion.is_ok() {
+                    let _ = content_indexing::sync_folder(&database, folder_id);
+                } else {
                     let _ = database.fail_scan(
                         run_id,
                         TaskStatus::Failed,

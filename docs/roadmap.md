@@ -65,6 +65,19 @@ with certainty, add projects/sessions, content search, AI, analytics, or destruc
 Milestone 6 does not add full-text content search, AI, application/window/keyboard/mouse/browser/screenshot
 tracking, automatic file organization, productivity scores, analytics, or destructive file operations.
 
+## Milestone 7: Optional local full-text search
+
+- Explicit per-folder opt-in for local content indexing, disabled by default.
+- Supported formats: `.txt`, `.md`, and selected source-code text files, with configurable extensions.
+- Per-folder file-size limits, exclusion patterns, and default secret-file exclusions (`.env`, `.env.*`, `*.key`, `*.pem`, `id_rsa`, etc.).
+- Local text extraction and SQLite FTS5 index.
+- Incremental update after scans and watcher batches, removal when disabled, and clear-content-index action.
+- Filename-only versus content-search modes with clear UI labels.
+- Sanitized snippets; arbitrary HTML from FTS5 is escaped and never rendered as trusted markup.
+- No remote API, upload, OCR, PDF/DOCX extraction, or natural-language AI search.
+
+Milestone 7 does not add automatic cloud indexing, AI search, binary-file indexing, OCR, PDF/DOCX extraction, or productivity scoring.
+
 ## Later exploration
 
-Any identity inference, content indexing, or higher-level grouping requires a separate milestone, privacy review, and tests.
+Any additional identity inference, higher-level grouping, or new extraction formats require a separate milestone, privacy review, and tests.

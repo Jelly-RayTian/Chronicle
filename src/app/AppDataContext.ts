@@ -9,10 +9,14 @@ import type {
   AddVersionFamilyMemberRequest,
   ApplicationError,
   ApplicationInfo,
+  ClearContentIndexRequest,
+  ContentSearchResult,
   CreateProjectRequest,
   DatabaseStatus,
+  EnableFolderContentIndexingRequest,
   FileEvent,
   FileRecord,
+  FolderContentIndexingRequest,
   FolderRegistration,
   GenerateSessionsRequest,
   IndexedFolder,
@@ -25,14 +29,16 @@ import type {
   ProjectDetail,
   ProjectRequest,
   ProjectSummary,
+  ReindexFolderContentResponse,
   RemoveProjectMemberRequest,
   RemoveVersionFamilyMemberRequest,
   RenameVersionFamilyRequest,
   RejectProjectRequest,
-  SplitVersionFamilyRequest,
   ScanRun,
   ScanTaskSnapshot,
+  SearchFilesRequest,
   SessionRequest,
+  SplitVersionFamilyRequest,
   SuggestProjectsRequest,
   SuggestVersionFamiliesRequest,
   TimelineItem,
@@ -108,6 +114,15 @@ export interface AppData {
   updateSession: (request: UpdateSessionRequest) => Promise<ActivitySession>;
   acceptSession: (request: SessionRequest) => Promise<ActivitySession>;
   rejectSession: (request: SessionRequest) => Promise<ActivitySession>;
+  enableFolderContentIndexing: (
+    request: EnableFolderContentIndexingRequest,
+  ) => Promise<IndexedFolder>;
+  disableFolderContentIndexing: (request: FolderContentIndexingRequest) => Promise<IndexedFolder>;
+  reindexFolderContent: (
+    request: FolderContentIndexingRequest,
+  ) => Promise<ReindexFolderContentResponse>;
+  clearAllContentIndex: (request: ClearContentIndexRequest) => Promise<void>;
+  searchFiles: (request: SearchFilesRequest) => Promise<ContentSearchResult[]>;
   clearFolderActionError: () => void;
   reload: () => void;
 }

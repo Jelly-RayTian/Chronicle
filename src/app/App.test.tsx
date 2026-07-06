@@ -68,6 +68,11 @@ const readyClient = (): TauriClient => ({
   updateSession: vi.fn(),
   acceptSession: vi.fn(),
   rejectSession: vi.fn(),
+  enableFolderContentIndexing: vi.fn(),
+  disableFolderContentIndexing: vi.fn(),
+  reindexFolderContent: vi.fn(),
+  clearAllContentIndex: vi.fn(),
+  searchFiles: vi.fn().mockResolvedValue([]),
 });
 
 const folder: IndexedFolder = {
@@ -79,6 +84,10 @@ const folder: IndexedFolder = {
   monitoringEnabled: false,
   availabilityStatus: 'available',
   lastCheckedAt: '2026-06-22T05:00:00.000Z',
+  contentIndexingEnabled: false,
+  contentIndexingExtensions: 'txt,md',
+  contentIndexingMaxBytes: 1048576,
+  contentIndexingExclusionPatterns: '.env,.env.*',
 };
 
 const watcherStatus = {
@@ -110,7 +119,7 @@ describe('Chronicle application', () => {
     expect(screen.getAllByText('Ready')).toHaveLength(2);
   });
 
-  it('navigates between all six pages', async () => {
+  it('navigates between all seven pages', async () => {
     const user = userEvent.setup();
     render(<App client={readyClient()} />);
 
@@ -125,6 +134,9 @@ describe('Chronicle application', () => {
 
     await user.click(screen.getByRole('button', { name: 'Sessions' }));
     expect(screen.getByRole('heading', { name: 'Sessions' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Search' }));
+    expect(screen.getByRole('heading', { name: 'Search' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Settings' }));
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
@@ -310,6 +322,11 @@ describe('Chronicle application', () => {
       updateSession: () => pending,
       acceptSession: () => pending,
       rejectSession: () => pending,
+      enableFolderContentIndexing: () => pending,
+      disableFolderContentIndexing: () => pending,
+      reindexFolderContent: () => pending,
+      clearAllContentIndex: () => pending,
+      searchFiles: () => pending,
     };
 
     render(<App client={client} />);

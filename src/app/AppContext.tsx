@@ -5,11 +5,16 @@ import type {
   ActivitySessionSummary,
   ApplicationError,
   ApplicationInfo,
+  ClearContentIndexRequest,
+  ContentSearchResult,
   DatabaseStatus,
+  EnableFolderContentIndexingRequest,
+  FolderContentIndexingRequest,
   FolderRegistration,
   IndexedFolder,
   ProjectSummary,
   ScanTaskSnapshot,
+  SearchFilesRequest,
   TimelinePage,
   TimelineRequest,
   VersionFamilySummary,
@@ -498,6 +503,54 @@ export const AppProvider = ({ children, client = tauriClient }: AppProviderProps
     [client, runSessionAction],
   );
 
+  const runFolderContentAction = useCallback(
+    async <T,>(action: () => Promise<T>): Promise<T> => {
+      setFolderActionError(null);
+      try {
+        const result = await action();
+        await refreshFolders();
+        return result;
+      } catch (error: unknown) {
+        setFolderActionError(toApplicationError(error));
+        throw error;
+      }
+    },
+    [refreshFolders],
+  );
+
+  const enableFolderContentIndexing = useCallback(
+    (request: EnableFolderContentIndexingRequest) =>
+      runFolderContentAction(() => client.enableFolderContentIndexing(request)),
+    [client, runFolderContentAction],
+  );
+  const disableFolderContentIndexing = useCallback(
+    (request: FolderContentIndexingRequest) =>
+      runFolderContentAction(() => client.disableFolderContentIndexing(request)),
+    [client, runFolderContentAction],
+  );
+  const reindexFolderContent = useCallback(
+    (request: FolderContentIndexingRequest) =>
+      runFolderContentAction(() => client.reindexFolderContent(request)),
+    [client, runFolderContentAction],
+  );
+  const clearAllContentIndex = useCallback(
+    (request: ClearContentIndexRequest) =>
+      runFolderContentAction(() => client.clearAllContentIndex(request)),
+    [client, runFolderContentAction],
+  );
+  const searchFiles = useCallback(
+    async (request: SearchFilesRequest): Promise<ContentSearchResult[]> => {
+      setFolderActionError(null);
+      try {
+        return await client.searchFiles(request);
+      } catch (error: unknown) {
+        setFolderActionError(toApplicationError(error));
+        return [];
+      }
+    },
+    [client],
+  );
+
   const value = {
     applicationInfo,
     databaseStatus,
@@ -552,6 +605,11 @@ export const AppProvider = ({ children, client = tauriClient }: AppProviderProps
     updateSession,
     acceptSession,
     rejectSession,
+    enableFolderContentIndexing,
+    disableFolderContentIndexing,
+    reindexFolderContent,
+    clearAllContentIndex,
+    searchFiles,
     clearFolderActionError: () => setFolderActionError(null),
     reload,
   };

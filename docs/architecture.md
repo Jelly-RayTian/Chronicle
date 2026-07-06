@@ -99,3 +99,13 @@ Version families are explicitly user-reviewed. Suggestions do not modify files, 
 8. Users can edit session titles/projects and accept/reject individual sessions.
 
 Projects and sessions are purely contextual metadata. They never rename, move, delete, or read the contents of original files. Session inference uses only Chronicle file events; no external activity sources are consulted.
+
+## Milestone 7 optional local full-text indexing
+
+1. Content indexing is disabled by default for every indexed folder.
+2. The user opts in per folder on the Indexed folders page, with visible defaults for extensions, max file size, and exclusion patterns.
+3. After a successful metadata scan or watcher batch, the content-indexing service runs a sync pass for that folder if enabled.
+4. The sync pass loads the folder config and current `files` snapshot, skips ineligible files, reads eligible text files inside the authorized root, and updates `content_index_documents` and `content_index_fts`.
+5. The user searches from the Search page, choosing filename or content mode and optionally filtering by folder.
+6. Content results return FTS5 snippets with custom markers; the backend strips markers and escapes HTML before serializing to the frontend. The frontend renders snippets as plain text.
+7. Disabling a folder or clearing the index deletes the corresponding FTS rows and documents. Removing an indexed folder clears its content-index rows first.

@@ -4,6 +4,7 @@ import { AppShell } from '../components/layout/AppShell';
 import type { TauriClient } from '../lib/tauri/client';
 import { IndexedFoldersPage } from '../pages/IndexedFoldersPage';
 import { ProjectsPage } from '../pages/ProjectsPage';
+import { SearchPage } from '../pages/SearchPage';
 import { SessionsPage } from '../pages/SessionsPage';
 import { SettingsPage } from '../pages/SettingsPage';
 import { TimelinePage } from '../pages/TimelinePage';
@@ -20,6 +21,7 @@ const CurrentPage = ({ page }: { page: PageId }) => {
   if (page === 'versions') return <VersionsPage />;
   if (page === 'projects') return <ProjectsPage />;
   if (page === 'sessions') return <SessionsPage />;
+  if (page === 'search') return <SearchPage />;
   if (page === 'settings') return <SettingsPage />;
   return <TimelinePage />;
 };

@@ -14,6 +14,7 @@ use std::{
 use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 
 use crate::{
+    content_indexing,
     database::Database,
     errors::ChronicleError,
     models::{IndexedFolder, WatcherDesiredState, WatcherRuntimeState, WatcherStatus},
@@ -470,7 +471,11 @@ fn process_debounced_paths(
             observations.push(observation);
         }
     }
-    database.publish_watcher_observations(folder_id, &observations)
+    let result = database.publish_watcher_observations(folder_id, &observations);
+    if result.is_ok() {
+        let _ = content_indexing::sync_files_from_observations(database, folder_id, &observations);
+    }
+    result
 }
 
 #[cfg(test)]

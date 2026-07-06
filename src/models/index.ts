@@ -18,6 +18,10 @@ export interface IndexedFolder {
   monitoringEnabled: boolean;
   availabilityStatus: AvailabilityStatus;
   lastCheckedAt: string | null;
+  contentIndexingEnabled: boolean;
+  contentIndexingExtensions: string;
+  contentIndexingMaxBytes: number;
+  contentIndexingExclusionPatterns: string;
 }
 
 export type NestingRelationship = 'inside_existing' | 'contains_existing';
@@ -406,4 +410,37 @@ export interface GenerateSessionsRequest {
 
 export interface GenerateSessionsResponse {
   sessionsCreated: number;
+}
+
+export type ContentSearchMode = 'filename' | 'content';
+
+export interface ContentSearchResult {
+  file: FileRecord;
+  snippet: string;
+  rank: number;
+}
+
+export interface SearchFilesRequest {
+  query: string;
+  mode: ContentSearchMode;
+  folderId: number | null;
+  limit: number;
+}
+
+export interface EnableFolderContentIndexingRequest {
+  folderId: number;
+  extensions: string | null;
+  maxBytes: number | null;
+  exclusionPatterns: string | null;
+}
+
+export interface FolderContentIndexingRequest {
+  folderId: number;
+}
+
+export type ClearContentIndexRequest = Record<string, never>;
+
+export interface ReindexFolderContentResponse {
+  filesIndexed: number;
+  filesRemoved: number;
 }

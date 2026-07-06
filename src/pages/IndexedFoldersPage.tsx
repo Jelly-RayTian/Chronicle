@@ -1,4 +1,5 @@
 import {
+  FileText,
   FolderPlus,
   FolderSimpleDashed,
   Pause,
@@ -14,6 +15,13 @@ import { useAppData } from '../app/AppDataContext';
 import { EmptyState, ErrorState, LoadingState } from '../components/states/ContentState';
 import type { IndexedFolder, NestedFolderWarning } from '../models';
 import './IndexedFoldersPage.css';
+
+interface ContentEditingState {
+  extensions: string;
+  maxBytes: string;
+  exclusions: string;
+  expanded: boolean;
+}
 
 const formatTime = (value: string | null, locale: string, never: string) =>
   value
@@ -37,12 +45,16 @@ export const IndexedFoldersPage = () => {
     disableFolderMonitoring,
     pauseFolderMonitoring,
     resumeFolderMonitoring,
+    enableFolderContentIndexing,
+    disableFolderContentIndexing,
+    reindexFolderContent,
     clearFolderActionError,
     reload,
   } = useAppData();
   const [adding, setAdding] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<IndexedFolder | null>(null);
   const [nestedWarnings, setNestedWarnings] = useState<NestedFolderWarning[]>([]);
+  const [contentEditing, setContentEditing] = useState<Record<number, ContentEditingState>>({});
 
   const addFolder = async () => {
     setAdding(true);
@@ -55,6 +67,49 @@ export const IndexedFoldersPage = () => {
     if (!removeTarget) return;
     const removed = await removeIndexedFolder(removeTarget.id);
     if (removed) setRemoveTarget(null);
+  };
+
+  const ensureEditingState = (folder: IndexedFolder): ContentEditingState =>
+    contentEditing[folder.id] ?? {
+      extensions: folder.contentIndexingExtensions,
+      maxBytes: String(folder.contentIndexingMaxBytes),
+      exclusions: folder.contentIndexingExclusionPatterns,
+      expanded: false,
+    };
+
+  const handleEnableContentIndexing = async (folder: IndexedFolder) => {
+    const state = ensureEditingState(folder);
+    await enableFolderContentIndexing({
+      folderId: folder.id,
+      extensions: state.extensions,
+      maxBytes: Number(state.maxBytes),
+      exclusionPatterns: state.exclusions,
+    });
+    setContentEditing((current) => {
+      const next = { ...current };
+      delete next[folder.id];
+      return next;
+    });
+  };
+
+  const handleDisableContentIndexing = async (folder: IndexedFolder) => {
+    await disableFolderContentIndexing({ folderId: folder.id });
+    setContentEditing((current) => {
+      const next = { ...current };
+      delete next[folder.id];
+      return next;
+    });
+  };
+
+  const handleReindexContent = async (folder: IndexedFolder) => {
+    await reindexFolderContent({ folderId: folder.id });
+  };
+
+  const updateEditingState = (folder: IndexedFolder, patch: Partial<ContentEditingState>) => {
+    setContentEditing((current) => ({
+      ...current,
+      [folder.id]: { ...ensureEditingState(folder), ...patch },
+    }));
   };
 
   return (
@@ -244,6 +299,107 @@ export const IndexedFoldersPage = () => {
                   >
                     {t('folders.remove')}
                   </button>
+                </div>
+                <div className="content-indexing-panel">
+                  <div className="content-indexing-header">
+                    <FileText size={16} aria-hidden="true" />
+                    <strong>
+                      {folder.contentIndexingEnabled
+                        ? t('folders.contentIndexing.enabled')
+                        : t('folders.contentIndexing.disabled')}
+                    </strong>
+                    {folder.contentIndexingEnabled ? (
+                      <>
+                        <button
+                          className="button"
+                          type="button"
+                          onClick={() => void handleReindexContent(folder)}
+                        >
+                          {t('folders.contentIndexing.reindex')}
+                        </button>
+                        <button
+                          className="button"
+                          type="button"
+                          onClick={() =>
+                            updateEditingState(folder, {
+                              expanded: !ensureEditingState(folder).expanded,
+                            })
+                          }
+                        >
+                          {ensureEditingState(folder).expanded
+                            ? t('folders.contentIndexing.hide')
+                            : t('folders.contentIndexing.edit')}
+                        </button>
+                        <button
+                          className="button button--danger"
+                          type="button"
+                          onClick={() => void handleDisableContentIndexing(folder)}
+                        >
+                          {t('folders.contentIndexing.disable')}
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        className="button"
+                        type="button"
+                        onClick={() => void handleEnableContentIndexing(folder)}
+                      >
+                        {t('folders.contentIndexing.enable')}
+                      </button>
+                    )}
+                  </div>
+                  {folder.contentIndexingEnabled ? (
+                    <p className="content-indexing-note">
+                      {t('folders.contentIndexing.localOnly')}
+                    </p>
+                  ) : (
+                    <p className="content-indexing-note">
+                      {t('folders.contentIndexing.disabledNote')}
+                    </p>
+                  )}
+                  {folder.contentIndexingEnabled && ensureEditingState(folder).expanded ? (
+                    <div className="content-indexing-form">
+                      <label>
+                        <span>{t('folders.contentIndexing.extensions')}</span>
+                        <input
+                          type="text"
+                          value={ensureEditingState(folder).extensions}
+                          onChange={(event) =>
+                            updateEditingState(folder, { extensions: event.target.value })
+                          }
+                        />
+                      </label>
+                      <label>
+                        <span>{t('folders.contentIndexing.maxBytes')}</span>
+                        <input
+                          type="number"
+                          min={1024}
+                          step={1024}
+                          value={ensureEditingState(folder).maxBytes}
+                          onChange={(event) =>
+                            updateEditingState(folder, { maxBytes: event.target.value })
+                          }
+                        />
+                      </label>
+                      <label>
+                        <span>{t('folders.contentIndexing.exclusions')}</span>
+                        <input
+                          type="text"
+                          value={ensureEditingState(folder).exclusions}
+                          onChange={(event) =>
+                            updateEditingState(folder, { exclusions: event.target.value })
+                          }
+                        />
+                      </label>
+                      <button
+                        className="button"
+                        type="button"
+                        onClick={() => void handleEnableContentIndexing(folder)}
+                      >
+                        {t('folders.contentIndexing.save')}
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               </article>
             );

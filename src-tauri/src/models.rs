@@ -37,6 +37,10 @@ pub struct IndexedFolder {
     pub monitoring_enabled: bool,
     pub availability_status: AvailabilityStatus,
     pub last_checked_at: Option<String>,
+    pub content_indexing_enabled: bool,
+    pub content_indexing_extensions: String,
+    pub content_indexing_max_bytes: i64,
+    pub content_indexing_exclusion_patterns: String,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -765,6 +769,66 @@ pub struct RemoveVersionFamilyMemberRequest {
     pub family_id: i64,
     pub file_id: i64,
 }
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ContentSearchMode {
+    Filename,
+    Content,
+}
+
+impl ContentSearchMode {
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Filename => "filename",
+            Self::Content => "content",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ContentSearchResult {
+    pub file: FileRecord,
+    pub snippet: String,
+    pub rank: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchFilesRequest {
+    pub query: String,
+    pub mode: ContentSearchMode,
+    pub folder_id: Option<i64>,
+    pub limit: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct EnableFolderContentIndexingRequest {
+    pub folder_id: i64,
+    pub extensions: Option<String>,
+    pub max_bytes: Option<i64>,
+    pub exclusion_patterns: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct FolderContentIndexingRequest {
+    pub folder_id: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ReindexFolderContentResponse {
+    pub files_indexed: usize,
+    pub files_removed: usize,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ClearContentIndexRequest {}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]

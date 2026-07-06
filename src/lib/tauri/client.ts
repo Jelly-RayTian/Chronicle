@@ -10,10 +10,14 @@ import type {
   AddVersionFamilyMemberRequest,
   ApplicationError,
   ApplicationInfo,
+  ClearContentIndexRequest,
+  ContentSearchResult,
   CreateProjectRequest,
   DatabaseStatus,
+  EnableFolderContentIndexingRequest,
   FileEvent,
   FileRecord,
+  FolderContentIndexingRequest,
   FolderRegistration,
   GenerateSessionsRequest,
   GenerateSessionsResponse,
@@ -27,12 +31,14 @@ import type {
   ProjectDetail,
   ProjectRequest,
   ProjectSummary,
+  ReindexFolderContentResponse,
   RemoveProjectMemberRequest,
   RemoveVersionFamilyMemberRequest,
   RenameVersionFamilyRequest,
   RejectProjectRequest,
   ScanRun,
   ScanTaskSnapshot,
+  SearchFilesRequest,
   SessionRequest,
   SplitVersionFamilyRequest,
   SuggestProjectsRequest,
@@ -108,6 +114,13 @@ export interface TauriClient {
   updateSession(request: UpdateSessionRequest): Promise<ActivitySession>;
   acceptSession(request: SessionRequest): Promise<ActivitySession>;
   rejectSession(request: SessionRequest): Promise<ActivitySession>;
+  enableFolderContentIndexing(request: EnableFolderContentIndexingRequest): Promise<IndexedFolder>;
+  disableFolderContentIndexing(request: FolderContentIndexingRequest): Promise<IndexedFolder>;
+  reindexFolderContent(
+    request: FolderContentIndexingRequest,
+  ): Promise<ReindexFolderContentResponse>;
+  clearAllContentIndex(request: ClearContentIndexRequest): Promise<void>;
+  searchFiles(request: SearchFilesRequest): Promise<ContentSearchResult[]>;
 }
 
 const isApplicationError = (value: unknown): value is ApplicationError => {
@@ -232,6 +245,14 @@ export const createTauriClient = (
   updateSession: (request) => invokeFunction<ActivitySession>('update_session', { request }),
   acceptSession: (request) => invokeFunction<ActivitySession>('accept_session', { request }),
   rejectSession: (request) => invokeFunction<ActivitySession>('reject_session', { request }),
+  enableFolderContentIndexing: (request) =>
+    invokeFunction<IndexedFolder>('enable_folder_content_indexing', { request }),
+  disableFolderContentIndexing: (request) =>
+    invokeFunction<IndexedFolder>('disable_folder_content_indexing', { request }),
+  reindexFolderContent: (request) =>
+    invokeFunction<ReindexFolderContentResponse>('reindex_folder_content', { request }),
+  clearAllContentIndex: (request) => invokeFunction<void>('clear_all_content_index', { request }),
+  searchFiles: (request) => invokeFunction<ContentSearchResult[]>('search_files', { request }),
 });
 
 export const tauriClient = createTauriClient(invoke);

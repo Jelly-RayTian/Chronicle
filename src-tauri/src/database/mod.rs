@@ -94,12 +94,17 @@ mod tests {
             "activity_sessions",
             "activity_session_events",
             "activity_session_files",
+            "content_index_documents",
         ] {
             assert!(names.contains(expected), "missing table: {expected}");
         }
+        assert!(
+            names.contains("content_index_fts"),
+            "missing virtual table: content_index_fts"
+        );
         drop(statement);
         drop(connection);
-        assert_eq!(database.schema_version().unwrap_or_default(), 7);
+        assert_eq!(database.schema_version().unwrap_or_default(), 8);
     }
 
     #[test]

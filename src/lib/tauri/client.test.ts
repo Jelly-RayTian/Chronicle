@@ -222,4 +222,39 @@ describe('Tauri client', () => {
     expect(invoke).toHaveBeenNthCalledWith(15, 'accept_session', { request: { sessionId: 5 } });
     expect(invoke).toHaveBeenNthCalledWith(16, 'reject_session', { request: { sessionId: 5 } });
   });
+
+  it('uses typed content-indexing command payloads', async () => {
+    const invoke = vi.fn().mockResolvedValue(undefined);
+    const client = createTauriClient(invoke as InvokeFunction);
+
+    await client.enableFolderContentIndexing({
+      folderId: 7,
+      extensions: 'txt,md',
+      maxBytes: 1024,
+      exclusionPatterns: '.env',
+    });
+    await client.disableFolderContentIndexing({ folderId: 7 });
+    await client.reindexFolderContent({ folderId: 7 });
+    await client.clearAllContentIndex({});
+    await client.searchFiles({
+      query: 'hello',
+      mode: 'content',
+      folderId: 7,
+      limit: 20,
+    });
+
+    expect(invoke).toHaveBeenNthCalledWith(1, 'enable_folder_content_indexing', {
+      request: { folderId: 7, extensions: 'txt,md', maxBytes: 1024, exclusionPatterns: '.env' },
+    });
+    expect(invoke).toHaveBeenNthCalledWith(2, 'disable_folder_content_indexing', {
+      request: { folderId: 7 },
+    });
+    expect(invoke).toHaveBeenNthCalledWith(3, 'reindex_folder_content', {
+      request: { folderId: 7 },
+    });
+    expect(invoke).toHaveBeenNthCalledWith(4, 'clear_all_content_index', { request: {} });
+    expect(invoke).toHaveBeenNthCalledWith(5, 'search_files', {
+      request: { query: 'hello', mode: 'content', folderId: 7, limit: 20 },
+    });
+  });
 });
