@@ -314,9 +314,47 @@
 }
 
 .privacy-item p {
-  margin-top: 3px;
+  margin: 0;
   color: var(--text-muted);
   font-size: 12px;
+  line-height: 1.45;
+}
+
+.diagnostics-export-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: start;
+  align-self: start;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    opacity 120ms ease;
+}
+
+.diagnostics-export-button:hover:not(:disabled) {
+  background: var(--surface-muted);
+}
+
+.diagnostics-export-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.diagnostics-export-status {
+  margin: 10px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.diagnostics-export-status--error {
+  color: var(--error);
 }
 
 .folder-list,

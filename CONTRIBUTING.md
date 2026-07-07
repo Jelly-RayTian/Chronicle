@@ -34,8 +34,18 @@ cargo test --manifest-path src-tauri/Cargo.toml
 cargo check --manifest-path src-tauri/Cargo.toml
 ```
 
+Before a release, also verify the migration upgrade test:
+
+```powershell
+cargo test --manifest-path src-tauri/Cargo.toml migration_from_v1_preserves_indexed_folder_and_files -- --nocapture
+```
+
 ## Pull requests
 
 Describe the user-facing result, privacy impact, tests added, and screenshots for visual changes. Do not include generated data, local database files, credentials, or private paths.
 
 Use clear commits such as `feat: add timeline pagination` or `fix: preserve folder consent state`.
+
+## Releases
+
+Releases are built from tags matching `v*.*.*`. Pushing such a tag triggers the release workflow, which builds the Windows installer and attaches it to a GitHub Release.

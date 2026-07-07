@@ -1,4 +1,12 @@
-import { ClockCounterClockwise, FolderSimple, GearSix } from '@phosphor-icons/react';
+import {
+  Briefcase,
+  ClockCounterClockwise,
+  FolderSimple,
+  GearSix,
+  Hourglass,
+  MagnifyingGlass,
+  Stack,
+} from '@phosphor-icons/react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -15,6 +23,10 @@ interface AppShellProps {
 const navigation = [
   { id: 'timeline', icon: ClockCounterClockwise },
   { id: 'indexed-folders', icon: FolderSimple },
+  { id: 'versions', icon: Stack },
+  { id: 'projects', icon: Briefcase },
+  { id: 'sessions', icon: Hourglass },
+  { id: 'search', icon: MagnifyingGlass },
   { id: 'settings', icon: GearSix },
 ] as const;
 
@@ -43,6 +55,7 @@ export const AppShell = ({ activePage, onNavigate, children }: AppShellProps) =>
               type="button"
               className={activePage === id ? 'navigation-item is-active' : 'navigation-item'}
               aria-current={activePage === id ? 'page' : undefined}
+              aria-label={t(pageTranslationKey[id])}
               onClick={() => onNavigate(id)}
             >
               <Icon size={20} weight={activePage === id ? 'fill' : 'regular'} aria-hidden="true" />

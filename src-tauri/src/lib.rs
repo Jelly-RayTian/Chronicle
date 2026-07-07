@@ -1,34 +1,132 @@
 pub mod commands;
+pub mod content_indexing;
 pub mod database;
 pub mod errors;
 pub mod events;
+pub mod folders;
+pub mod identity;
 pub mod models;
+pub mod performance;
 pub mod platform;
+pub mod projects;
 pub mod scanner;
+pub mod sessions;
 pub mod tasks;
+pub mod version_families;
+pub mod watcher;
 
 use tauri::Manager;
 
 use commands::{
-    application::get_application_info, database::get_database_status,
-    folders::list_indexed_folders, timeline::query_timeline_page,
+    application::get_application_info,
+    content_indexing::{
+        clear_all_content_index, disable_folder_content_indexing, enable_folder_content_indexing,
+        reindex_folder_content, search_files,
+    },
+    database::get_database_status,
+    diagnostics::export_diagnostics,
+    folders::{
+        cancel_folder_scan, get_scan_task, list_all_files, list_indexed_folders,
+        register_indexed_folder, remove_indexed_folder, start_folder_scan,
+    },
+    projects::{
+        accept_project, add_project_member, create_project, get_project, get_project_timeline,
+        list_projects, reject_project, remove_project_member, suggest_projects, update_project,
+    },
+    sessions::{
+        accept_session, generate_sessions, get_session, list_sessions, reject_session,
+        update_session,
+    },
+    timeline::{
+        confirm_event, get_file_event_history, get_file_path_history, get_scan_history,
+        open_timeline_file, query_timeline_page, reject_event, reveal_timeline_file,
+    },
+    version_families::{
+        accept_version_family, add_version_family_member, get_version_family,
+        list_version_families, merge_version_families, reject_version_family,
+        remove_version_family_member, rename_version_family, split_version_family,
+        suggest_version_families,
+    },
+    watchers::{
+        disable_folder_monitoring, enable_folder_monitoring, get_monitoring_status,
+        list_monitoring_statuses, pause_folder_monitoring, resume_folder_monitoring,
+    },
 };
 use database::Database;
+use tasks::ScanTaskManager;
+use watcher::WatcherManager;
 
 pub fn run() {
     let result = tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let data_directory = app.path().app_data_dir()?;
             let database = Database::open(data_directory.join("chronicle.sqlite3"))
                 .map_err(|error| -> Box<dyn std::error::Error> { Box::new(error) })?;
+            let tasks = ScanTaskManager::default();
+            let watchers = WatcherManager::default();
+            let _ = watchers.start_enabled_folders(database.clone(), tasks.clone());
             app.manage(database);
+            app.manage(tasks);
+            app.manage(watchers);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             get_application_info,
             get_database_status,
             list_indexed_folders,
-            query_timeline_page
+            register_indexed_folder,
+            remove_indexed_folder,
+            start_folder_scan,
+            get_scan_task,
+            cancel_folder_scan,
+            list_all_files,
+            list_monitoring_statuses,
+            get_monitoring_status,
+            enable_folder_monitoring,
+            disable_folder_monitoring,
+            pause_folder_monitoring,
+            resume_folder_monitoring,
+            query_timeline_page,
+            get_file_event_history,
+            get_scan_history,
+            get_file_path_history,
+            confirm_event,
+            reject_event,
+            open_timeline_file,
+            reveal_timeline_file,
+            list_version_families,
+            get_version_family,
+            suggest_version_families,
+            accept_version_family,
+            reject_version_family,
+            rename_version_family,
+            split_version_family,
+            merge_version_families,
+            add_version_family_member,
+            remove_version_family_member,
+            list_projects,
+            get_project,
+            create_project,
+            update_project,
+            accept_project,
+            reject_project,
+            add_project_member,
+            remove_project_member,
+            suggest_projects,
+            get_project_timeline,
+            list_sessions,
+            get_session,
+            generate_sessions,
+            update_session,
+            accept_session,
+            reject_session,
+            enable_folder_content_indexing,
+            disable_folder_content_indexing,
+            reindex_folder_content,
+            clear_all_content_index,
+            search_files,
+            export_diagnostics
         ])
         .run(tauri::generate_context!());
 

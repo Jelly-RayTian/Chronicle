@@ -1,23 +1,15 @@
 # Product
 
-## Problem
+Chronicle helps people return to local files through the time and context around their work. It is a privacy-first desktop history of meaningful metadata changes inside folders the user explicitly authorizes.
 
-People often remember a file by when and why they used it, not by its exact path. Chronicle is designed to make local file activity discoverable through time and context.
+## Product boundaries
 
-## Users
+Chronicle is not surveillance software, a productivity score, cloud drive, backup system, destructive organizer, content search engine, or AI assistant. Original files remain under the user's control.
 
-Chronicle is for individuals who work across documents, screenshots, PDFs, code, and project folders and want a private local history of that work.
+## Milestone 3 acceptance
 
-## Principles
+A completed metadata scan reconciles its full discovery set against the last complete snapshot and atomically records created, modified, and deleted events. Unchanged rescans create no duplicate events. Any failed, cancelled, interrupted, or partial scan keeps the prior snapshot and cannot generate deletion events.
 
-- Explicit consent before indexing a folder.
-- Local metadata and local persistence.
-- Honest states based on real data.
-- No employee monitoring, analytics, cloud drive, or AI chat surface.
-- Original files remain under the user's control.
+The timeline is backed by SQLite and supports stable pagination plus filename, extension, event type, folder, date, and current present/deleted filters. It groups events into Today, Yesterday, This week, and Earlier; shows file details, per-file event history, and folder scan history; and clearly disables open/reveal for deleted files.
 
-## Milestone 0 acceptance
-
-The application installs and launches, creates a migrated local database, exposes four typed native commands, renders three bilingual pages, and handles loading, empty, and error states without fake data.
-
-Folder selection and scanning are intentionally absent.
+Explicitly enabled folder monitoring records best-effort metadata changes through native filesystem watching. Monitoring is disabled by default, can be paused/resumed/disabled, validates every raw event against the authorized root, and uses reconciliation scans for recovery. Chronicle does not claim watcher history is complete and does not infer confirmed renames or moves.

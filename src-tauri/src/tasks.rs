@@ -1,24 +1,43 @@
-use serde::{Deserialize, Serialize};
+use std::{
+    collections::HashMap,
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
+};
 
-use crate::models::TaskStatus;
+use crate::errors::ChronicleError;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct TaskSnapshot {
-    pub id: String,
-    pub status: TaskStatus,
-    pub completed_units: u64,
-    pub total_units: Option<u64>,
+#[derive(Clone, Default)]
+pub struct ScanTaskManager {
+    cancellations: Arc<Mutex<HashMap<i64, Arc<AtomicBool>>>>,
 }
 
-impl TaskSnapshot {
-    #[must_use]
-    pub fn idle(id: impl Into<String>) -> Self {
-        Self {
-            id: id.into(),
-            status: TaskStatus::Idle,
-            completed_units: 0,
-            total_units: None,
+impl ScanTaskManager {
+    pub fn register(&self, scan_run_id: i64) -> Result<Arc<AtomicBool>, ChronicleError> {
+        let token = Arc::new(AtomicBool::new(false));
+        self.cancellations
+            .lock()
+            .map_err(|_error| ChronicleError::DatabaseState)?
+            .insert(scan_run_id, Arc::clone(&token));
+        Ok(token)
+    }
+
+    pub fn cancel(&self, scan_run_id: i64) -> Result<(), ChronicleError> {
+        let cancellations = self
+            .cancellations
+            .lock()
+            .map_err(|_error| ChronicleError::DatabaseState)?;
+        let token = cancellations
+            .get(&scan_run_id)
+            .ok_or(ChronicleError::ScanNotFound)?;
+        token.store(true, Ordering::Release);
+        Ok(())
+    }
+
+    pub fn finish(&self, scan_run_id: i64) {
+        if let Ok(mut cancellations) = self.cancellations.lock() {
+            cancellations.remove(&scan_run_id);
         }
     }
 }

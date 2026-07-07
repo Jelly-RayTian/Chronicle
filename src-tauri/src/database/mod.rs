@@ -1,14 +1,19 @@
 mod migrations;
 mod repository;
 
-use std::{fs, path::Path, sync::Mutex};
+use std::{
+    fs,
+    path::Path,
+    sync::{Arc, Mutex},
+};
 
 use rusqlite::Connection;
 
 use crate::errors::ChronicleError;
 
+#[derive(Clone)]
 pub struct Database {
-    pub(crate) connection: Mutex<Connection>,
+    pub(crate) connection: Arc<Mutex<Connection>>,
 }
 
 impl Database {
@@ -32,9 +37,11 @@ impl Database {
              PRAGMA busy_timeout = 5000;",
         )?;
         migrations::apply(&mut connection)?;
-        Ok(Self {
-            connection: Mutex::new(connection),
-        })
+        let database = Self {
+            connection: Arc::new(Mutex::new(connection)),
+        };
+        database.recover_interrupted_scans()?;
+        Ok(database)
     }
 }
 
@@ -42,6 +49,7 @@ impl Database {
 mod tests {
     use std::collections::BTreeSet;
 
+    use rusqlite::Connection;
     use tempfile::TempDir;
 
     use super::Database;
@@ -75,13 +83,29 @@ mod tests {
             "files",
             "file_events",
             "scan_runs",
+            "scan_file_staging",
+            "file_path_history",
             "app_settings",
+            "version_families",
+            "version_family_members",
+            "version_family_suggestions",
+            "projects",
+            "project_members",
+            "project_suggestions",
+            "activity_sessions",
+            "activity_session_events",
+            "activity_session_files",
+            "content_index_documents",
         ] {
             assert!(names.contains(expected), "missing table: {expected}");
         }
+        assert!(
+            names.contains("content_index_fts"),
+            "missing virtual table: content_index_fts"
+        );
         drop(statement);
         drop(connection);
-        assert_eq!(database.schema_version().unwrap_or_default(), 1);
+        assert_eq!(database.schema_version().unwrap_or_default(), 8);
     }
 
     #[test]
@@ -97,10 +121,117 @@ mod tests {
     fn new_database_returns_a_real_empty_timeline_page() {
         let (_directory, database) = new_database();
         let page = database
-            .query_timeline_page(None, 50)
+            .query_timeline_page(&crate::models::TimelineRequest::first_page(50))
             .unwrap_or_else(|error| panic!("timeline query should succeed: {error}"));
         assert!(page.items.is_empty());
         assert_eq!(page.next_cursor, None);
         assert!(!page.has_more);
+    }
+
+    #[test]
+    fn reopening_marks_interrupted_scans_failed_without_a_partial_snapshot() {
+        let directory = tempfile::tempdir()
+            .unwrap_or_else(|error| panic!("temporary directory should be created: {error}"));
+        let path = directory.path().join("chronicle.sqlite3");
+        let database =
+            Database::open(&path).unwrap_or_else(|error| panic!("database should open: {error}"));
+        let root = directory.path().join("root");
+        std::fs::create_dir(&root)
+            .unwrap_or_else(|error| panic!("root should be created: {error}"));
+        let folder = crate::folders::register_folder(&database, &root.to_string_lossy())
+            .unwrap_or_else(|error| panic!("folder should register: {error}"))
+            .folder;
+        let first_run = database
+            .create_scan_run(folder.id)
+            .unwrap_or_else(|error| panic!("first scan should start: {error}"));
+        let file = crate::scanner::DiscoveredFile {
+            normalized_path: root.join("stable.txt").to_string_lossy().into_owned(),
+            name: "stable.txt".to_owned(),
+            parent_path: root.to_string_lossy().into_owned(),
+            extension: Some("txt".to_owned()),
+            size_bytes: 6,
+            filesystem_created_at: None,
+            filesystem_modified_at: "2026-06-23T00:00:00.000Z".to_owned(),
+            identity_key: None,
+        };
+        database
+            .stage_scan_batch(first_run.scan_run_id, folder.id, &[file], 1, 0, 0)
+            .unwrap_or_else(|error| panic!("first scan should stage: {error}"));
+        database
+            .complete_scan(first_run.scan_run_id, folder.id, 1, 0, 0)
+            .unwrap_or_else(|error| panic!("first snapshot should publish: {error}"));
+        let run = database
+            .create_scan_run(folder.id)
+            .unwrap_or_else(|error| panic!("interrupted scan should start: {error}"));
+        drop(database);
+
+        let reopened =
+            Database::open(&path).unwrap_or_else(|error| panic!("database should reopen: {error}"));
+        let snapshot = reopened
+            .scan_task_snapshot(run.scan_run_id)
+            .unwrap_or_else(|error| panic!("recovered run should load: {error}"));
+        assert_eq!(snapshot.status, crate::models::TaskStatus::Failed);
+        let files = reopened.list_file_records(folder.id).unwrap_or_default();
+        assert_eq!(files.len(), 1);
+        assert!(files[0].is_present);
+        let events = reopened
+            .query_timeline_page(&crate::models::TimelineRequest::first_page(50))
+            .unwrap_or_else(|error| panic!("timeline should load: {error}"));
+        assert_eq!(events.items.len(), 1);
+        assert_eq!(events.items[0].event.event_type, "created");
+    }
+
+    #[test]
+    fn migration_from_v1_preserves_indexed_folder_and_files() {
+        let directory = tempfile::tempdir()
+            .unwrap_or_else(|error| panic!("temporary directory should exist: {error}"));
+        let path = directory.path().join("chronicle.sqlite3");
+        {
+            let connection = Connection::open(&path)
+                .unwrap_or_else(|error| panic!("connection should open: {error}"));
+            connection
+                .execute_batch(include_str!(concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/migrations/V1__initial.sql"
+                )))
+                .unwrap_or_else(|error| panic!("v1 schema should apply: {error}"));
+            connection
+                .execute(
+                    "INSERT INTO indexed_folders
+                     (id, normalized_path, display_name, added_at, monitoring_enabled, availability_status)
+                     VALUES (1, ?1, 'Test', '2026-01-01T00:00:00.000Z', 0, 'available')",
+                    ["C:\\tmp\\root"],
+                )
+                .unwrap_or_else(|error| panic!("folder should insert: {error}"));
+            connection
+                .execute(
+                    "INSERT INTO files
+                     (id, indexed_folder_id, normalized_path, name, extension, size_bytes,
+                      filesystem_created_at, filesystem_modified_at, first_indexed_at, last_seen_at, is_present)
+                     VALUES (1, 1, ?1, 'note.txt', 'txt', 12, NULL,
+                             '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z',
+                             '2026-01-01T00:00:00.000Z', 1)",
+                    ["C:\\tmp\\root\\note.txt"],
+                )
+                .unwrap_or_else(|error| panic!("file should insert: {error}"));
+            connection
+                .execute("PRAGMA user_version = 1", [])
+                .unwrap_or_else(|error| panic!("user_version should set: {error}"));
+        }
+
+        let database = Database::open(&path)
+            .unwrap_or_else(|error| panic!("database should open and migrate: {error}"));
+        assert_eq!(database.schema_version().unwrap_or_default(), 8);
+        let folders = database
+            .list_indexed_folders()
+            .unwrap_or_else(|error| panic!("folders should list: {error}"));
+        assert_eq!(folders.len(), 1);
+        assert_eq!(folders[0].display_name, "Test");
+        let files = database
+            .list_file_records(folders[0].id)
+            .unwrap_or_else(|error| panic!("files should list: {error}"));
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].name, "note.txt");
+        assert!(files[0].is_present);
     }
 }
