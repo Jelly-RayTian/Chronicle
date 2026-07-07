@@ -27,6 +27,18 @@ What is included in this release candidate:
 
 Chronicle does **not** read file contents unless content indexing is explicitly enabled for a folder, hash files, use AI, monitor hidden folders, upload data, or perform destructive file operations against original files. Watcher history is best-effort and not a perfect audit log.
 
+## Download
+
+Prebuilt Windows installers are available on the [Releases](https://github.com/Jelly-RayTian/Chronicle/releases) page. The latest release candidate is `v1.0.0-rc.1`.
+
+## Screenshots
+
+> Screenshots will be added to the release assets. Placeholder sections below show the intended views.
+
+|                     Timeline                      |                     Indexed folders                     |                     Settings                      |
+| :-----------------------------------------------: | :-----------------------------------------------------: | :-----------------------------------------------: |
+| ![Timeline](docs/assets/screenshots/timeline.png) | ![Indexed folders](docs/assets/screenshots/folders.png) | ![Settings](docs/assets/screenshots/settings.png) |
+
 ## Privacy guarantees
 
 - Chronicle has no analytics or telemetry.
