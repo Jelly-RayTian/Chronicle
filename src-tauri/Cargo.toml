@@ -1,6 +1,6 @@
 [package]
 name = "chronicle"
-version = "1.0.0-rc.1"
+version = "1.0.1"
 description = "A privacy-first local timeline for file activity"
 authors = ["Chronicle contributors"]
 edition = "2024"

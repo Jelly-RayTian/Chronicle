@@ -291,25 +291,32 @@ export const zhCN = {
   },
   errors: {
     unexpected: 'Chronicle 无法完成这次本地请求。',
-    databaseUnavailable: 'Chronicle 无法打开本地数据库。你的原始文件没有被修改。',
-    nativeUnavailable: 'Chronicle 无法连接原生服务。你的原始文件没有被修改。',
+    databaseUnavailable:
+      'Chronicle 无法打开本地数据库。你的原始文件没有被修改。请重启 Chronicle 重试。',
+    migrationFailed:
+      'Chronicle 无法升级本地数据库。你的原始文件没有被修改。请重新安装 Chronicle 或恢复应用数据文件夹的备份。',
     duplicateFolder: '这个文件夹已经建立索引。',
     notDirectory: '所选路径不是文件夹。',
     symbolicLinkRoot: '本里程碑不允许注册符号链接文件夹。',
     folderNotFound: 'Chronicle 中已不存在这个索引文件夹。',
-    missingOrMoved: '文件夹缺失或已经移动，原有快照已保留。',
-    permissionDenied: 'Chronicle 没有读取该文件夹元数据的权限。',
-    folderInaccessible: '文件夹当前无法访问，原有快照已保留。',
-    confirmationRequired: '请确认只移除 Chronicle 索引。',
+    missingOrMoved:
+      '文件夹缺失或已经移动。你的文件是安全的，原有快照已保留。请移除 Chronicle 索引或恢复文件夹后重试。',
+    permissionDenied:
+      'Chronicle 没有读取该文件夹的权限。你的文件是安全的。请在系统设置中检查文件夹权限后重试。',
+    folderInaccessible:
+      '文件夹当前无法访问。你的文件是安全的，原有快照已保留。请移除索引或检查文件夹后重试。',
+    confirmationRequired: '请确认只移除 Chronicle 索引。原始文件不会被触碰。',
     scanNotFound: '该扫描任务已不可用。',
     scanAlreadyRunning: '该文件夹已经有一个元数据扫描正在运行。',
+    scanCancelled: '扫描已取消。你的文件是安全的，原有快照已保留。',
     watcherAlreadyRunning: '该文件夹的监控已经在运行。',
     watcherNotRunning: '该文件夹的监控未运行。',
-    watcherFailed: 'Chronicle 无法启动或继续原生文件夹监控。',
+    watcherFailed:
+      'Chronicle 无法启动或继续原生文件夹监控。你的文件是安全的。请运行一次元数据扫描进行校准。',
     unauthorizedEventPath: 'Chronicle 已忽略授权文件夹之外的文件事件。',
-    eventStorm: '短时间内文件事件过多，Chronicle 已暂停监控。请运行一次元数据扫描进行校准。',
-    scanCancelled: '扫描已取消，原有快照已保留。',
-    fileUnavailable: '该文件已删除或当前不可用。',
+    eventStorm:
+      '短时间内文件事件过多，Chronicle 已暂停监控。你的文件是安全的。请运行一次元数据扫描进行校准。',
+    fileUnavailable: '该文件已删除或不可用。其在 Chronicle 中的历史记录已被保留。',
     versionFamilyNotFound: '未找到该版本族。',
     fileNotFound: '未找到该文件。',
     duplicateFamilyMember: '该文件已经是另一个版本族的成员。',
@@ -317,5 +324,7 @@ export const zhCN = {
     sessionNotFound: '未找到该会话。',
     duplicateProjectMember: '该文件已经是该项目的成员。',
     projectMemberNotFound: '未找到该项目成员。',
+    contentIndexingDisabled:
+      '尚未在任何文件夹开启内容索引。你的文件是安全的。请先在某个文件夹开启内容索引后再搜索文件内容。',
   },
 } as const;

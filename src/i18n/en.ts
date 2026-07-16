@@ -300,27 +300,34 @@ export const en = {
   errors: {
     unexpected: 'Chronicle could not complete this local request.',
     databaseUnavailable:
-      'Chronicle could not open its local database. Your original files were not changed.',
-    nativeUnavailable:
-      'Chronicle could not connect to its native service. Your original files were not changed.',
+      'Chronicle could not open its local database. Your original files were not changed. Restart Chronicle to try again.',
+    migrationFailed:
+      'Chronicle could not upgrade the local database. Your original files were not changed. Reinstall Chronicle or restore a backup of the application data folder.',
     duplicateFolder: 'That exact folder is already indexed.',
     notDirectory: 'The selected path is not a folder.',
     symbolicLinkRoot: 'Symbolic-link folders cannot be registered in this milestone.',
     folderNotFound: 'That indexed folder no longer exists in Chronicle.',
-    missingOrMoved: 'The folder is missing or has moved. The previous snapshot was kept.',
-    permissionDenied: 'Chronicle does not have permission to read this folder’s metadata.',
-    folderInaccessible: 'The folder is currently inaccessible. The previous snapshot was kept.',
-    confirmationRequired: 'Confirm that only Chronicle’s index should be removed.',
+    missingOrMoved:
+      'The folder is missing or has moved. Your files are safe and the previous snapshot was kept. Remove the Chronicle index or restore the folder and try again.',
+    permissionDenied:
+      'Chronicle does not have permission to read this folder. Your files are safe. Check the folder permissions in your system and try again.',
+    folderInaccessible:
+      'The folder is currently inaccessible. Your files are safe and the previous snapshot was kept. Remove the index or check the folder and try again.',
+    confirmationRequired:
+      'Confirm that only the Chronicle index should be removed. Original files will not be touched.',
     scanNotFound: 'That scan is no longer available.',
     scanAlreadyRunning: 'A metadata scan is already running for this folder.',
+    scanCancelled:
+      'The scan was cancelled. Your files are safe and the previous snapshot was kept.',
     watcherAlreadyRunning: 'Monitoring is already running for this folder.',
     watcherNotRunning: 'Monitoring is not running for this folder.',
-    watcherFailed: 'Chronicle could not start or continue native folder monitoring.',
+    watcherFailed:
+      'Chronicle could not start or continue native folder monitoring. Your files are safe. Run a metadata scan to reconcile changes.',
     unauthorizedEventPath: 'Chronicle ignored a file event outside the authorized folder.',
     eventStorm:
-      'Chronicle paused monitoring because too many file events arrived at once. Run a metadata scan to reconcile.',
-    scanCancelled: 'The scan was cancelled. The previous snapshot was kept.',
-    fileUnavailable: 'The file is deleted or no longer available.',
+      'Chronicle paused monitoring because too many file events arrived at once. Your files are safe. Run a metadata scan to reconcile.',
+    fileUnavailable:
+      'The file is deleted or no longer available. Its Chronicle history is preserved.',
     versionFamilyNotFound: 'That version family was not found.',
     fileNotFound: 'That file was not found.',
     duplicateFamilyMember: 'The file is already part of another version family.',
@@ -328,5 +335,7 @@ export const en = {
     sessionNotFound: 'That session was not found.',
     duplicateProjectMember: 'The file is already a member of this project.',
     projectMemberNotFound: 'The project member was not found.',
+    contentIndexingDisabled:
+      'Content indexing is not enabled for any folder. Your files are safe. Enable content indexing on a folder to search inside file contents.',
   },
 } as const;

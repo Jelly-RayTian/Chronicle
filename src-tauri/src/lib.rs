@@ -65,7 +65,12 @@ pub fn run() {
                 .map_err(|error| -> Box<dyn std::error::Error> { Box::new(error) })?;
             let tasks = ScanTaskManager::default();
             let watchers = WatcherManager::default();
-            let _ = watchers.start_enabled_folders(database.clone(), tasks.clone());
+            match watchers.start_enabled_folders(database.clone(), tasks.clone()) {
+                Ok(()) => {}
+                Err(error) => {
+                    eprintln!("chronicle: could not start enabled folders on launch: {error}");
+                }
+            }
             app.manage(database);
             app.manage(tasks);
             app.manage(watchers);

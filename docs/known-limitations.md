@@ -1,6 +1,6 @@
 # Known limitations
 
-This document summarizes the current known limitations of Chronicle v1.0.0-rc.1. It is honest about what the release candidate does not guarantee so users and contributors can set the right expectations.
+This document summarizes the current known limitations of Chronicle v1.0.1. It is honest about what the current release does not guarantee so users and contributors can set the right expectations.
 
 ## Platform support
 
@@ -53,3 +53,7 @@ This document summarizes the current known limitations of Chronicle v1.0.0-rc.1.
 ## Diagnostics
 
 - The diagnostics export includes application counts and status only. It intentionally does not contain file paths, filenames, or file contents so it can be shared safely.
+
+## Error messages
+
+- Error messages include file-safety reassurances and guidance where applicable. However, they cannot validate every local filesystem state; for complex failures, the safest action is always to remove the Chronicle index and re-add the folder--this never deletes original files.
