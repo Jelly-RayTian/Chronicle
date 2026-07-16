@@ -4,6 +4,23 @@ All notable changes to Chronicle are documented here. The format follows Keep a 
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-07-07
+
+### Added
+
+- Timeline grouping now includes This month and Older sections alongside Today, Yesterday, and This week.
+- Quick time filters: Today, Yesterday, Last 7 days, Last 30 days buttons and a jump-to-date picker.
+- Event favorites: star any timeline event and use a favorites filter to find them later. Favorites are persisted in a new `favorite_events` table (V9 migration).
+- Keyboard shortcuts: `/` focuses search, `j`/`k` or arrow keys navigate events, `Enter` opens detail panel, `Escape` closes detail panel or clears filters.
+- Confidence badge on event cards showing the inference percentage for inferred events.
+- Copy path button in the detail panel to copy a file's full path.
+
+### Changed
+
+- Event cards now show a confidence badge when the event has sub-1.0 confidence from inference.
+- Detail panel has a Copy path action and a star/unstar button for favorites.
+- Active event gets a visible focus ring for keyboard navigation.
+
 ## [1.0.1] - 2026-07-07
 
 ### Changed

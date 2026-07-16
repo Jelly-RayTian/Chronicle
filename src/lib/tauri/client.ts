@@ -84,6 +84,8 @@ export interface TauriClient {
   rejectEvent(eventId: number): Promise<void>;
   openTimelineFile(fileId: number): Promise<void>;
   revealTimelineFile(fileId: number): Promise<void>;
+  toggleEventFavorite(eventId: number): Promise<boolean>;
+  listFavoriteEventIds(): Promise<number[]>;
   listVersionFamilies(request: ListVersionFamiliesRequest): Promise<VersionFamilySummary[]>;
   getVersionFamily(request: VersionFamilyRequest): Promise<VersionFamilyDetail>;
   suggestVersionFamilies(
@@ -206,6 +208,8 @@ export const createTauriClient = (
   openTimelineFile: (fileId) => invokeFunction<void>('open_timeline_file', { request: { fileId } }),
   revealTimelineFile: (fileId) =>
     invokeFunction<void>('reveal_timeline_file', { request: { fileId } }),
+  toggleEventFavorite: (eventId) => invokeFunction<boolean>('toggle_event_favorite', { eventId }),
+  listFavoriteEventIds: () => invokeFunction<number[]>('list_favorite_event_ids'),
   listVersionFamilies: (request) =>
     invokeFunction<VersionFamilySummary[]>('list_version_families', { request }),
   getVersionFamily: (request) =>

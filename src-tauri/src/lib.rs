@@ -39,7 +39,8 @@ use commands::{
     },
     timeline::{
         confirm_event, get_file_event_history, get_file_path_history, get_scan_history,
-        open_timeline_file, query_timeline_page, reject_event, reveal_timeline_file,
+        list_favorite_event_ids, open_timeline_file, query_timeline_page, reject_event,
+        reveal_timeline_file, toggle_event_favorite,
     },
     version_families::{
         accept_version_family, add_version_family_member, get_version_family,
@@ -100,6 +101,8 @@ pub fn run() {
             reject_event,
             open_timeline_file,
             reveal_timeline_file,
+            toggle_event_favorite,
+            list_favorite_event_ids,
             list_version_families,
             get_version_family,
             suggest_version_families,

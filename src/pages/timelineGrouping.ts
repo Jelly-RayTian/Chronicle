@@ -1,4 +1,4 @@
-export type DateGroup = 'today' | 'yesterday' | 'thisWeek' | 'earlier';
+export type DateGroup = 'today' | 'yesterday' | 'thisWeek' | 'thisMonth' | 'older';
 
 const startOfDay = (value: Date) =>
   new Date(value.getFullYear(), value.getMonth(), value.getDate());
@@ -11,5 +11,8 @@ export const timelineDateGroup = (value: string, now = new Date()): DateGroup =>
   if (days === 1) return 'yesterday';
   const weekStart = new Date(today);
   weekStart.setDate(today.getDate() - ((today.getDay() + 6) % 7));
-  return event >= weekStart ? 'thisWeek' : 'earlier';
+  if (event >= weekStart) return 'thisWeek';
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  if (event >= monthStart) return 'thisMonth';
+  return 'older';
 };
