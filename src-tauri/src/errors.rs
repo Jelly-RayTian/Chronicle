@@ -66,14 +66,21 @@ pub enum ChronicleError {
     DuplicateProjectMember,
     #[error("the project member was not found")]
     ProjectMemberNotFound,
+    #[error("no folder has content indexing enabled")]
+    ContentIndexingDisabled,
+    #[error("database migration upgrade failed")]
+    MigrationFailed(String),
 }
 
 impl From<ChronicleError> for ApplicationError {
     fn from(error: ChronicleError) -> Self {
         match error {
-            ChronicleError::Database(_)
-            | ChronicleError::Migration(_)
-            | ChronicleError::DatabaseState => ApplicationError::database_unavailable(),
+            ChronicleError::Database(_) | ChronicleError::DatabaseState => {
+                ApplicationError::database_unavailable()
+            }
+            ChronicleError::Migration(_) | ChronicleError::MigrationFailed(_) => {
+                ApplicationError::new("migration_failed", "errors.migrationFailed", false)
+            }
             ChronicleError::DuplicateFolder => {
                 ApplicationError::new("duplicate_folder", "errors.duplicateFolder", false)
             }
@@ -161,6 +168,11 @@ impl From<ChronicleError> for ApplicationError {
             ChronicleError::ProjectMemberNotFound => ApplicationError::new(
                 "project_member_not_found",
                 "errors.projectMemberNotFound",
+                false,
+            ),
+            ChronicleError::ContentIndexingDisabled => ApplicationError::new(
+                "content_indexing_disabled",
+                "errors.contentIndexingDisabled",
                 false,
             ),
         }

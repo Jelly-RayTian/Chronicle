@@ -29,7 +29,7 @@ Chronicle does **not** read file contents unless content indexing is explicitly 
 
 ## Download
 
-Prebuilt Windows installers are available on the [Releases](https://github.com/Jelly-RayTian/Chronicle/releases) page. The latest release candidate is `v1.0.0-rc.1`.
+Prebuilt Windows installers are available on the [Releases](https://github.com/Jelly-RayTian/Chronicle/releases) page. The latest release is `v1.0.1`.
 
 ## Screenshots
 
@@ -113,4 +113,4 @@ Read [Architecture](docs/architecture.md) and [Database](docs/database.md) for d
 
 ## Project status
 
-Chronicle is at v1.0.0-rc.1. The database and timeline are intentionally empty until the user authorizes a folder and completes a scan or explicitly enables monitoring; no fake production data is created.
+Chronicle is at v1.0.1. The database and timeline are intentionally empty until the user authorizes a folder and completes a scan or explicitly enables monitoring; no fake production data is created.

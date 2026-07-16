@@ -4,6 +4,26 @@ All notable changes to Chronicle are documented here. The format follows Keep a 
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-07-07
+
+### Changed
+
+- Improved all user-facing error messages to consistently explain what happened, whether original files are safe, and what the user can do next.
+- Added a specific error for database migration failures, separate from generic database-unavailable errors, with a message that includes recovery steps.
+- Added a specific error for content-indexing-disabled attempts so users are told to enable content indexing rather than seeing a generic failure.
+- Startup now logs watcher and scan initialization errors instead of silently ignoring them; migrated folders with watchers enabled still reconcile on restart.
+- The database initialization phase now captures migration failure details and surfaces them through the typed error boundary.
+
+### Added
+
+- Test verifying that a missing indexed folder after restart is surfaced correctly, preserves file records from previous scans, and rejects traversal on the deleted path.
+- Test verifying every new error code maps to the correct i18n message key and retryable flag.
+
+### Fixed
+
+- Cancelled scan, missing-folder, permission-denied, watcher-failure, event-storm, and file-unavailable error messages now include explicit file-safety reassurances and recovery guidance.
+- Interrupted startup watchers/scan errors are no longer silently discarded.
+
 ## [1.0.0-rc.1] - 2026-07-07
 
 ### Added

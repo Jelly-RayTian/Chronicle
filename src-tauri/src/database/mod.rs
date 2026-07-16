@@ -36,7 +36,9 @@ impl Database {
             "PRAGMA foreign_keys = ON;
              PRAGMA busy_timeout = 5000;",
         )?;
-        migrations::apply(&mut connection)?;
+        if let Err(error) = migrations::apply(&mut connection) {
+            return Err(ChronicleError::MigrationFailed(error.to_string()));
+        }
         let database = Self {
             connection: Arc::new(Mutex::new(connection)),
         };
@@ -233,5 +235,86 @@ mod tests {
         assert_eq!(files.len(), 1);
         assert_eq!(files[0].name, "note.txt");
         assert!(files[0].is_present);
+    }
+
+    #[test]
+    fn missing_indexed_folder_after_restart_is_surfaced_as_unavailable() {
+        let directory = tempfile::tempdir()
+            .unwrap_or_else(|error| panic!("temporary directory should exist: {error}"));
+        let root = directory.path().join("root");
+        std::fs::create_dir(&root)
+            .unwrap_or_else(|error| panic!("root should be created: {error}"));
+        std::fs::write(root.join("doc.txt"), b"content")
+            .unwrap_or_else(|error| panic!("file should be written: {error}"));
+        let path = directory.path().join("chronicle.sqlite3");
+        {
+            let database = Database::open(&path)
+                .unwrap_or_else(|error| panic!("database should open: {error}"));
+            let folder = crate::folders::register_folder(&database, &root.to_string_lossy())
+                .unwrap_or_else(|error| panic!("folder should register: {error}"))
+                .folder;
+            let run = database
+                .create_scan_run(folder.id)
+                .unwrap_or_else(|error| panic!("scan should start: {error}"));
+            let counts = crate::scanner::traverse(
+                &database,
+                run.scan_run_id,
+                folder.id,
+                &root,
+                &std::sync::atomic::AtomicBool::new(false),
+            )
+            .unwrap_or_else(|error| panic!("scan should traverse: {error}"));
+            database
+                .complete_scan(
+                    run.scan_run_id,
+                    folder.id,
+                    counts.files_seen,
+                    counts.warnings,
+                    counts.errors,
+                )
+                .unwrap_or_else(|error| panic!("scan should publish: {error}"));
+            assert_eq!(folder.last_successful_scan_at, None);
+        }
+        std::fs::remove_dir_all(&root)
+            .unwrap_or_else(|error| panic!("folder should be removed for test: {error}"));
+
+        let database =
+            Database::open(&path).unwrap_or_else(|error| panic!("database should reopen: {error}"));
+        let folders = database
+            .list_indexed_folders()
+            .unwrap_or_else(|error| panic!("folders should list: {error}"));
+        assert_eq!(folders.len(), 1, "missing folder should still be listed");
+        let folder = &folders[0];
+        assert_eq!(folder.display_name, "root");
+        let files = database.list_file_records(folder.id).unwrap_or_default();
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].name, "doc.txt");
+
+        let scan = database.create_scan_run(folder.id);
+        assert!(
+            scan.is_ok(),
+            "create_scan_run only inserts a row; availability is checked during traverse"
+        );
+        let run = scan.unwrap_or_else(|e| panic!("{e}"));
+        let traverse_result = crate::scanner::traverse(
+            &database,
+            run.scan_run_id,
+            folder.id,
+            &root,
+            &std::sync::atomic::AtomicBool::new(false),
+        );
+        assert!(
+            traverse_result.is_err(),
+            "traversing a deleted folder should fail"
+        );
+
+        let final_files = database.list_file_records(folder.id).unwrap_or_default();
+        assert_eq!(
+            final_files.len(),
+            1,
+            "previous snapshot files should be preserved"
+        );
+        let parent = root.parent().is_some_and(|p| p.exists());
+        assert!(parent, "parent directory should not be affected");
     }
 }

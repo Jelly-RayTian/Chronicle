@@ -28,6 +28,42 @@ mod tests {
     }
 
     #[test]
+    fn error_codes_map_to_expected_message_keys() {
+        use crate::errors::ChronicleError;
+        use crate::models::ApplicationError;
+
+        let app_error: ApplicationError =
+            ApplicationError::from(ChronicleError::MigrationFailed("V99 missing".to_owned()));
+        assert_eq!(app_error.message_key, "errors.migrationFailed");
+        assert!(!app_error.retryable);
+
+        let app_error: ApplicationError = ApplicationError::from(ChronicleError::MissingOrMoved);
+        assert_eq!(app_error.message_key, "errors.missingOrMoved");
+        assert!(app_error.retryable);
+
+        let app_error: ApplicationError = ApplicationError::from(ChronicleError::PermissionDenied);
+        assert_eq!(app_error.message_key, "errors.permissionDenied");
+        assert!(app_error.retryable);
+
+        let app_error: ApplicationError = ApplicationError::from(ChronicleError::Cancelled);
+        assert_eq!(app_error.message_key, "errors.scanCancelled");
+        assert!(!app_error.retryable);
+
+        let app_error: ApplicationError = ApplicationError::from(ChronicleError::WatcherFailed);
+        assert_eq!(app_error.message_key, "errors.watcherFailed");
+        assert!(app_error.retryable);
+
+        let app_error: ApplicationError = ApplicationError::from(ChronicleError::FileUnavailable);
+        assert_eq!(app_error.message_key, "errors.fileUnavailable");
+        assert!(!app_error.retryable);
+
+        let app_error: ApplicationError =
+            ApplicationError::from(ChronicleError::ContentIndexingDisabled);
+        assert_eq!(app_error.message_key, "errors.contentIndexingDisabled");
+        assert!(!app_error.retryable);
+    }
+
+    #[test]
     fn database_status_reports_the_applied_schema() {
         let database = Database::open_in_memory()
             .unwrap_or_else(|error| panic!("in-memory database should open: {error}"));

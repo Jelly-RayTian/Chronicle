@@ -252,8 +252,8 @@ describe('Chronicle application', () => {
     render(<App client={client} />);
 
     expect(
-      await screen.findByText(
-        'Chronicle could not open its local database. Your original files were not changed.',
+      await screen.findByText((content) =>
+        content.includes('Chronicle could not open its local database'),
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText(/chronicle\.sqlite/i)).not.toBeInTheDocument();

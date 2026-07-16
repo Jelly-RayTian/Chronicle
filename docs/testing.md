@@ -19,6 +19,7 @@ Rust tests use temporary directories and SQLite databases. Coverage includes:
 - successful deletion with retained file rows and history;
 - cancelled and failed scans preserving the last complete snapshot;
 - startup recovery of interrupted scans;
+- missing indexed folder after restart preserving file records and rejecting traversal;
 - missing roots and partial staged-count mismatch rollback;
 - symbolic-link skipping and original-file non-mutation;
 - SQLite keyset pagination plus filename, extension, event type, folder, date, and presence filters.
