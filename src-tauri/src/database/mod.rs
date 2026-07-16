@@ -107,7 +107,7 @@ mod tests {
         );
         drop(statement);
         drop(connection);
-        assert_eq!(database.schema_version().unwrap_or_default(), 8);
+        assert_eq!(database.schema_version().unwrap_or_default(), 9);
     }
 
     #[test]
@@ -223,7 +223,7 @@ mod tests {
 
         let database = Database::open(&path)
             .unwrap_or_else(|error| panic!("database should open and migrate: {error}"));
-        assert_eq!(database.schema_version().unwrap_or_default(), 8);
+        assert_eq!(database.schema_version().unwrap_or_default(), 9);
         let folders = database
             .list_indexed_folders()
             .unwrap_or_else(|error| panic!("folders should list: {error}"));

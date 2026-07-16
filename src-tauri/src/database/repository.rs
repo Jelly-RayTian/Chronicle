@@ -387,6 +387,39 @@ impl Database {
         })
     }
 
+    pub fn toggle_event_favorite(&self, event_id: i64) -> Result<bool, ChronicleError> {
+        let connection = self.connection()?;
+        let exists = connection
+            .query_row(
+                "SELECT 1 FROM favorite_events WHERE event_id = ?1",
+                [event_id],
+                |_row| Ok(true),
+            )
+            .unwrap_or(false);
+        if exists {
+            connection.execute(
+                "DELETE FROM favorite_events WHERE event_id = ?1",
+                [event_id],
+            )?;
+            Ok(false)
+        } else {
+            let now = chrono::Utc::now().to_rfc3339();
+            connection.execute(
+                "INSERT INTO favorite_events (event_id, created_at) VALUES (?1, ?2)",
+                rusqlite::params![event_id, now],
+            )?;
+            Ok(true)
+        }
+    }
+
+    pub fn list_favorite_event_ids(&self) -> Result<Vec<i64>, ChronicleError> {
+        let connection = self.connection()?;
+        let mut statement =
+            connection.prepare("SELECT event_id FROM favorite_events ORDER BY created_at DESC")?;
+        let rows = statement.query_map([], |row| row.get::<_, i64>(0))?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+    }
+
     pub fn list_indexed_folders(&self) -> Result<Vec<IndexedFolder>, ChronicleError> {
         let connection = self.connection()?;
         let mut statement = connection.prepare(

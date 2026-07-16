@@ -36,6 +36,10 @@ const MIGRATION_ARRAY: &[M<'static>] = &[
         env!("CARGO_MANIFEST_DIR"),
         "/migrations/V8__milestone_7_content_indexing.sql"
     ))),
+    M::up(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/migrations/V9__event_favorites.sql"
+    ))),
 ];
 const MIGRATIONS: Migrations<'static> = Migrations::from_slice(MIGRATION_ARRAY);
 

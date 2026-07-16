@@ -86,6 +86,8 @@ export interface AppData {
   rejectEvent: (eventId: number) => Promise<void>;
   openTimelineFile: (fileId: number) => Promise<void>;
   revealTimelineFile: (fileId: number) => Promise<void>;
+  toggleEventFavorite: (eventId: number) => Promise<boolean>;
+  listFavoriteEventIds: () => Promise<number[]>;
   listVersionFamilies: (request: ListVersionFamiliesRequest) => Promise<VersionFamilySummary[]>;
   getVersionFamily: (request: VersionFamilyRequest) => Promise<VersionFamilyDetail>;
   suggestVersionFamilies: (request: SuggestVersionFamiliesRequest) => Promise<number>;

@@ -1,6 +1,6 @@
 # Known limitations
 
-This document summarizes the current known limitations of Chronicle v1.0.1. It is honest about what the current release does not guarantee so users and contributors can set the right expectations.
+This document summarizes the current known limitations of Chronicle v1.1.0. It is honest about what the current release does not guarantee so users and contributors can set the right expectations.
 
 ## Platform support
 

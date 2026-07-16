@@ -324,6 +324,11 @@ export const AppProvider = ({ children, client = tauriClient }: AppProviderProps
     (fileId: number) => client.revealTimelineFile(fileId),
     [client],
   );
+  const toggleEventFavorite = useCallback(
+    (eventId: number) => client.toggleEventFavorite(eventId),
+    [client],
+  );
+  const listFavoriteEventIds = useCallback(() => client.listFavoriteEventIds(), [client]);
 
   const runVersionFamilyAction = useCallback(
     async <T,>(action: () => Promise<T>): Promise<T> => {
@@ -579,6 +584,8 @@ export const AppProvider = ({ children, client = tauriClient }: AppProviderProps
     rejectEvent,
     openTimelineFile,
     revealTimelineFile,
+    toggleEventFavorite,
+    listFavoriteEventIds,
     listVersionFamilies,
     getVersionFamily,
     suggestVersionFamilies,

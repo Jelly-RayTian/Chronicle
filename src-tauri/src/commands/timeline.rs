@@ -100,3 +100,18 @@ pub fn query_timeline_page(
 ) -> Result<TimelinePage, ApplicationError> {
     query_timeline_page_impl(database.inner(), request)
 }
+
+#[tauri::command]
+pub fn toggle_event_favorite(
+    database: State<'_, Database>,
+    event_id: i64,
+) -> Result<bool, ApplicationError> {
+    database.toggle_event_favorite(event_id).map_err(Into::into)
+}
+
+#[tauri::command]
+pub fn list_favorite_event_ids(
+    database: State<'_, Database>,
+) -> Result<Vec<i64>, ApplicationError> {
+    database.list_favorite_event_ids().map_err(Into::into)
+}
