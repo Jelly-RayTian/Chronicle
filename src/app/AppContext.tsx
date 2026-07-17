@@ -507,6 +507,11 @@ export const AppProvider = ({ children, client = tauriClient }: AppProviderProps
       runSessionAction(() => client.rejectSession(request)),
     [client, runSessionAction],
   );
+  const mergeSessions = useCallback(
+    (request: import('../models').MergeSessionsRequest) =>
+      runSessionAction(() => client.mergeSessions(request)),
+    [client, runSessionAction],
+  );
 
   const runFolderContentAction = useCallback(
     async <T,>(action: () => Promise<T>): Promise<T> => {
@@ -612,6 +617,7 @@ export const AppProvider = ({ children, client = tauriClient }: AppProviderProps
     updateSession,
     acceptSession,
     rejectSession,
+    mergeSessions,
     enableFolderContentIndexing,
     disableFolderContentIndexing,
     reindexFolderContent,

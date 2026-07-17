@@ -25,6 +25,7 @@ import type {
   ListProjectsRequest,
   ListSessionsRequest,
   ListVersionFamiliesRequest,
+  MergeSessionsRequest,
   MergeVersionFamiliesRequest,
   PathHistoryItem,
   Project,
@@ -116,6 +117,7 @@ export interface TauriClient {
   updateSession(request: UpdateSessionRequest): Promise<ActivitySession>;
   acceptSession(request: SessionRequest): Promise<ActivitySession>;
   rejectSession(request: SessionRequest): Promise<ActivitySession>;
+  mergeSessions(request: MergeSessionsRequest): Promise<ActivitySession>;
   enableFolderContentIndexing(request: EnableFolderContentIndexingRequest): Promise<IndexedFolder>;
   disableFolderContentIndexing(request: FolderContentIndexingRequest): Promise<IndexedFolder>;
   reindexFolderContent(
@@ -250,6 +252,7 @@ export const createTauriClient = (
   updateSession: (request) => invokeFunction<ActivitySession>('update_session', { request }),
   acceptSession: (request) => invokeFunction<ActivitySession>('accept_session', { request }),
   rejectSession: (request) => invokeFunction<ActivitySession>('reject_session', { request }),
+  mergeSessions: (request) => invokeFunction<ActivitySession>('merge_sessions', { request }),
   enableFolderContentIndexing: (request) =>
     invokeFunction<IndexedFolder>('enable_folder_content_indexing', { request }),
   disableFolderContentIndexing: (request) =>

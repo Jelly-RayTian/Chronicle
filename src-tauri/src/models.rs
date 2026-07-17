@@ -435,6 +435,13 @@ pub struct UpdateSessionRequest {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct MergeSessionsRequest {
+    pub target_session_id: i64,
+    pub source_session_id: i64,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct ListSessionsRequest {
     pub project_id: Option<i64>,
 }

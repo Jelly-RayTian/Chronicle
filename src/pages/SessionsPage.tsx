@@ -1,9 +1,9 @@
 import './SessionsPage.css';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Hourglass } from '@phosphor-icons/react';
+import { GitMerge, Hourglass, X } from '@phosphor-icons/react';
 
 import { useAppData } from '../app/AppDataContext';
 import { EmptyState, ErrorState, LoadingState } from '../components/states/ContentState';
@@ -15,17 +15,52 @@ import type {
   Project,
 } from '../models';
 
+const parseEventBreakdown = (summary: string) => {
+  if (!summary) return {};
+  const result: Record<string, number> = {};
+  for (const part of summary.split(',')) {
+    const match = part.trim().match(/^(\d+)\s+(.+)$/);
+    if (match?.[2]) {
+      result[match[2]] = Number(match[1]);
+    }
+  }
+  return result;
+};
+
+const formatDuration = (startedAt: string, endedAt: string) => {
+  const start = new Date(startedAt).getTime();
+  const end = new Date(endedAt).getTime();
+  const minutes = Math.round((end - start) / 60_000);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const remain = minutes % 60;
+  return remain > 0 ? `${hours}h ${remain}m` : `${hours}h`;
+};
+
 export const SessionsPage = () => {
   const { t } = useTranslation();
-  const { sessions, generateSessions, folderActionError, clearFolderActionError } = useAppData();
+  const { sessions, generateSessions, mergeSessions, folderActionError, clearFolderActionError } =
+    useAppData();
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [mergeSourceId, setMergeSourceId] = useState<number | null>(null);
 
   const handleGenerate = async () => {
     clearFolderActionError();
     try {
       await generateSessions({ gapMinutes: null });
     } catch {
-      // handled in context
+      /* handled in context */
+    }
+  };
+
+  const handleMerge = async (targetId: number) => {
+    if (mergeSourceId == null) return;
+    clearFolderActionError();
+    try {
+      await mergeSessions({ targetSessionId: targetId, sourceSessionId: mergeSourceId });
+      setMergeSourceId(null);
+    } catch {
+      /* handled in context */
     }
   };
 
@@ -37,7 +72,7 @@ export const SessionsPage = () => {
 
   return (
     <div className="sessions-page">
-      <header className="page-header">
+      <header className="sessions-header">
         <div>
           <h1>{t('sessions.title')}</h1>
           <p>{t('sessions.description')}</p>
@@ -61,6 +96,20 @@ export const SessionsPage = () => {
 
       <p className="privacy-note">{t('sessions.noProductivityScore')}</p>
 
+      {mergeSourceId != null && (
+        <div className="merge-banner">
+          <GitMerge size={16} />
+          <span>{t('sessions.mergeHint')}</span>
+          <button
+            type="button"
+            className="button secondary small"
+            onClick={() => setMergeSourceId(null)}
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       {sessions.state === 'loading' ? <LoadingState /> : null}
       {sessions.state === 'error' ? <ErrorState error={sessions.error} /> : null}
 
@@ -77,7 +126,16 @@ export const SessionsPage = () => {
               <SessionCard
                 key={summary.session.id}
                 summary={summary}
+                merging={mergeSourceId === summary.session.id}
+                showMergeTarget={mergeSourceId != null}
                 onSelect={() => setSelectedId(summary.session.id)}
+                onMergeSelect={() => {
+                  if (mergeSourceId == null) {
+                    setMergeSourceId(summary.session.id);
+                  } else {
+                    void handleMerge(summary.session.id);
+                  }
+                }}
               />
             ))
           )}
@@ -89,22 +147,71 @@ export const SessionsPage = () => {
 
 const SessionCard = ({
   summary,
+  merging,
+  showMergeTarget,
   onSelect,
+  onMergeSelect,
 }: {
   summary: ActivitySessionSummary;
+  merging: boolean;
+  showMergeTarget: boolean;
   onSelect: () => void;
+  onMergeSelect: () => void;
 }) => {
   const { t } = useTranslation();
+  const breakdown = useMemo(
+    () => parseEventBreakdown(summary.session.eventSummary),
+    [summary.session.eventSummary],
+  );
+  const duration = formatDuration(summary.session.startedAt, summary.session.endedAt);
+
   return (
-    <button type="button" className="session-card" onClick={onSelect}>
-      <div className="session-card-title">{summary.session.title}</div>
-      <div className="session-card-meta">
-        {t('sessions.eventCount', { count: summary.eventCount })} ·{' '}
-        {t('sessions.fileCount', { count: summary.fileCount })}
-        {summary.projectName ? ` · ${summary.projectName}` : null}
-      </div>
-      <div className="session-card-summary">{summary.session.eventSummary}</div>
-    </button>
+    <div className={`session-card${merging ? ' is-merging' : ''}`}>
+      <button type="button" className="session-card-main" onClick={onSelect}>
+        <div className="session-card-title">{summary.session.title}</div>
+        <div className="session-card-meta">
+          {duration && <span className="meta-chip">{duration}</span>}
+          <span className="meta-chip">
+            {t('sessions.eventCount', { count: summary.eventCount })}
+          </span>
+          <span className="meta-chip">{t('sessions.fileCount', { count: summary.fileCount })}</span>
+          {summary.projectName && <span className="meta-chip project">{summary.projectName}</span>}
+        </div>
+        <div className="session-card-summary">
+          {Object.entries(breakdown).length > 0
+            ? Object.entries(breakdown).map(([kind, count]) => (
+                <span key={kind} className="event-tag" data-event={kind}>
+                  {count} {t(`timeline.events.${kind}` as never)}
+                </span>
+              ))
+            : summary.session.eventSummary}
+        </div>
+        <div className="session-card-time">
+          {new Date(summary.session.startedAt).toLocaleDateString()}{' '}
+          {new Date(summary.session.startedAt).toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+          })}
+          {' — '}
+          {new Date(summary.session.endedAt).toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+          })}
+        </div>
+      </button>
+      <button
+        type="button"
+        className={`merge-button${merging ? ' active' : ''}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          onMergeSelect();
+        }}
+        title={showMergeTarget ? t('sessions.mergeTarget') : t('sessions.merge')}
+      >
+        <GitMerge size={15} />
+        {merging ? t('sessions.mergeTarget') : showMergeTarget ? t('sessions.merge') : ''}
+      </button>
+    </div>
   );
 };
 
@@ -126,22 +233,6 @@ const SessionDetails = ({ sessionId, onBack }: { sessionId: number; onBack: () =
   const [title, setTitle] = useState('');
   const [projectId, setProjectId] = useState<number | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
-
-  const load = async () => {
-    setError(null);
-    try {
-      const next = await getSession({ sessionId });
-      setDetail(next);
-      setTitle(next.session.title);
-      setProjectId(next.session.projectId);
-      const projectList = await listProjects({ status: 'active' });
-      setProjects(projectList.map((summary) => summary.project));
-    } catch (err: unknown) {
-      setError(toApplicationError(err));
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
     let active = true;
@@ -178,9 +269,12 @@ const SessionDetails = ({ sessionId, onBack }: { sessionId: number; onBack: () =
         projectId,
       });
       setEditing(false);
-      await load();
+      const next = await getSession({ sessionId });
+      setDetail(next);
+      setTitle(next.session.title);
+      setProjectId(next.session.projectId);
     } catch {
-      // handled
+      /* handled */
     } finally {
       setLoading(false);
     }
@@ -191,9 +285,10 @@ const SessionDetails = ({ sessionId, onBack }: { sessionId: number; onBack: () =
     setLoading(true);
     try {
       await acceptSession({ sessionId });
-      await load();
+      const next = await getSession({ sessionId });
+      setDetail(next);
     } catch {
-      // handled
+      /* handled */
     } finally {
       setLoading(false);
     }
@@ -204,9 +299,10 @@ const SessionDetails = ({ sessionId, onBack }: { sessionId: number; onBack: () =
     setLoading(true);
     try {
       await rejectSession({ sessionId });
-      await load();
+      const next = await getSession({ sessionId });
+      setDetail(next);
     } catch {
-      // handled
+      /* handled */
     } finally {
       setLoading(false);
     }
@@ -221,6 +317,9 @@ const SessionDetails = ({ sessionId, onBack }: { sessionId: number; onBack: () =
         }
       />
     );
+
+  const duration = formatDuration(detail.session.startedAt, detail.session.endedAt);
+  const breakdown = parseEventBreakdown(detail.session.eventSummary);
 
   return (
     <div className="session-details">
@@ -272,9 +371,19 @@ const SessionDetails = ({ sessionId, onBack }: { sessionId: number; onBack: () =
           <div>
             <h1>{detail.session.title}</h1>
             <p>
-              {detail.session.startedAt} — {detail.session.endedAt}
+              {new Date(detail.session.startedAt).toLocaleString()} —{' '}
+              {new Date(detail.session.endedAt).toLocaleString()} {duration ? `(${duration})` : ''}
             </p>
             {detail.project ? <p>{detail.project.name}</p> : null}
+
+            <div className="session-breakdown">
+              {Object.entries(breakdown).map(([kind, count]) => (
+                <span key={kind} className="event-tag" data-event={kind}>
+                  {count} {t(`timeline.events.${kind}` as never)}
+                </span>
+              ))}
+            </div>
+
             <button type="button" className="button secondary" onClick={() => setEditing(true)}>
               {t('sessions.editTitle')}
             </button>
@@ -315,12 +424,15 @@ const SessionDetails = ({ sessionId, onBack }: { sessionId: number; onBack: () =
       <section className="detail-section">
         <h2>{t('sessions.events')}</h2>
         <ul className="timeline-mini">
-          {detail.events.map((event) => (
+          {detail.events.slice(0, 100).map((event) => (
             <li key={event.id}>
               <span className="event-type">{event.eventType}</span>
-              <span className="event-time">{event.detectedAt}</span>
+              <span className="event-time">{new Date(event.detectedAt).toLocaleString()}</span>
             </li>
           ))}
+          {detail.events.length > 100 && (
+            <li className="more-events">… {detail.events.length - 100} more events</li>
+          )}
         </ul>
       </section>
     </div>

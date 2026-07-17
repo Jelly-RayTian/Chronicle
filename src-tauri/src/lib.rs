@@ -34,8 +34,8 @@ use commands::{
         list_projects, reject_project, remove_project_member, suggest_projects, update_project,
     },
     sessions::{
-        accept_session, generate_sessions, get_session, list_sessions, reject_session,
-        update_session,
+        accept_session, generate_sessions, get_session, list_sessions, merge_sessions,
+        reject_session, update_session,
     },
     timeline::{
         confirm_event, get_file_event_history, get_file_path_history, get_scan_history,
@@ -129,6 +129,7 @@ pub fn run() {
             update_session,
             accept_session,
             reject_session,
+            merge_sessions,
             enable_folder_content_indexing,
             disable_folder_content_indexing,
             reindex_folder_content,

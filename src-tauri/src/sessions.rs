@@ -97,6 +97,14 @@ pub fn reject_session(
     database.reject_session(request.session_id)
 }
 
+pub fn merge_sessions(
+    database: &Database,
+    target_id: i64,
+    source_id: i64,
+) -> Result<ActivitySession, ChronicleError> {
+    database.merge_activity_sessions(target_id, source_id)
+}
+
 fn build_session(
     database: &Database,
     events: &[&crate::models::FileEvent],
