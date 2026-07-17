@@ -3390,6 +3390,9 @@ impl Database {
         &self,
         query: &str,
         folder_id: Option<i64>,
+        extension: Option<&str>,
+        date_from: Option<&str>,
+        date_to: Option<&str>,
         limit: u32,
     ) -> Result<Vec<ContentSearchResult>, ChronicleError> {
         let connection = self.connection()?;
@@ -3403,39 +3406,57 @@ impl Database {
              JOIN files f ON f.id = content_index_fts.doc_id
              WHERE content_index_fts MATCH ?1 AND f.is_present = 1
                AND (?2 IS NULL OR f.indexed_folder_id = ?2)
+               AND (?3 IS NULL OR lower(COALESCE(f.extension, '')) = lower(?3))
+               AND (?4 IS NULL OR f.last_seen_at >= ?4)
+               AND (?5 IS NULL OR f.last_seen_at < ?5)
              ORDER BY rank
-             LIMIT ?3",
+             LIMIT ?6",
         )?;
-        let rows = statement.query_map(params![query, folder_id, i64::from(limit)], |row| {
-            let file = FileRecord {
-                id: row.get(0)?,
-                indexed_folder_id: row.get(1)?,
-                normalized_path: row.get(2)?,
-                name: row.get(3)?,
-                parent_path: row.get(4)?,
-                extension: row.get(5)?,
-                size_bytes: row.get(6)?,
-                filesystem_created_at: row.get(7)?,
-                filesystem_modified_at: row.get(8)?,
-                first_indexed_at: row.get(9)?,
-                last_seen_at: row.get(10)?,
-                is_present: row.get::<_, i64>(11)? != 0,
-            };
-            let snippet: String = row.get(12)?;
-            let rank: f64 = row.get(13)?;
-            Ok(ContentSearchResult {
-                file,
-                snippet,
-                rank,
-            })
-        })?;
+        let rows = statement.query_map(
+            params![
+                query,
+                folder_id,
+                extension.map(|e| e.trim_start_matches('.')),
+                date_from,
+                date_to,
+                i64::from(limit)
+            ],
+            |row| {
+                let file = FileRecord {
+                    id: row.get(0)?,
+                    indexed_folder_id: row.get(1)?,
+                    normalized_path: row.get(2)?,
+                    name: row.get(3)?,
+                    parent_path: row.get(4)?,
+                    extension: row.get(5)?,
+                    size_bytes: row.get(6)?,
+                    filesystem_created_at: row.get(7)?,
+                    filesystem_modified_at: row.get(8)?,
+                    first_indexed_at: row.get(9)?,
+                    last_seen_at: row.get(10)?,
+                    is_present: row.get::<_, i64>(11)? != 0,
+                };
+                let snippet: String = row.get(12)?;
+                let rank: f64 = row.get(13)?;
+                Ok(ContentSearchResult {
+                    file,
+                    snippet,
+                    rank,
+                })
+            },
+        )?;
         rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn search_filename(
         &self,
         query: &str,
         folder_id: Option<i64>,
+        extension: Option<&str>,
+        date_from: Option<&str>,
+        date_to: Option<&str>,
+        is_present: Option<bool>,
         limit: u32,
     ) -> Result<Vec<FileRecord>, ChronicleError> {
         let connection = self.connection()?;
@@ -3444,14 +3465,27 @@ impl Database {
                     size_bytes, filesystem_created_at, filesystem_modified_at,
                     first_indexed_at, last_seen_at, is_present
              FROM files
-             WHERE is_present = 1 AND name LIKE ?1
+             WHERE name LIKE ?1
                AND (?2 IS NULL OR indexed_folder_id = ?2)
+               AND (?3 IS NULL OR lower(COALESCE(extension, '')) = lower(?3))
+               AND (?4 IS NULL OR last_seen_at >= ?4)
+               AND (?5 IS NULL OR last_seen_at < ?5)
+               AND (?6 IS NULL OR is_present = ?6)
              ORDER BY id
-             LIMIT ?3",
+             LIMIT ?7",
         )?;
         let pattern = format!("%{query}%");
+        let present = is_present.map(i64::from);
         let rows = statement.query_map(
-            params![pattern, folder_id, i64::from(limit)],
+            params![
+                pattern,
+                folder_id,
+                extension.map(|e| e.trim_start_matches('.')),
+                date_from,
+                date_to,
+                present,
+                i64::from(limit)
+            ],
             map_content_file_record,
         )?;
         rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)

@@ -429,6 +429,11 @@ export interface SearchFilesRequest {
   query: string;
   mode: ContentSearchMode;
   folderId: number | null;
+  extension: string | null;
+  dateFrom: string | null;
+  dateTo: string | null;
+  presence: 'present' | 'deleted' | null;
+  eventType: string | null;
   limit: number;
 }
 

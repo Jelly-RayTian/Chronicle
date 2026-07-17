@@ -240,6 +240,11 @@ describe('Tauri client', () => {
       query: 'hello',
       mode: 'content',
       folderId: 7,
+      extension: null,
+      dateFrom: null,
+      dateTo: null,
+      presence: null,
+      eventType: null,
       limit: 20,
     });
 
@@ -254,7 +259,17 @@ describe('Tauri client', () => {
     });
     expect(invoke).toHaveBeenNthCalledWith(4, 'clear_all_content_index', { request: {} });
     expect(invoke).toHaveBeenNthCalledWith(5, 'search_files', {
-      request: { query: 'hello', mode: 'content', folderId: 7, limit: 20 },
+      request: {
+        query: 'hello',
+        mode: 'content',
+        folderId: 7,
+        extension: null,
+        dateFrom: null,
+        dateTo: null,
+        presence: null,
+        eventType: null,
+        limit: 20,
+      },
     });
   });
 });
