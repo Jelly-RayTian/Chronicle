@@ -131,6 +131,11 @@ mod tests {
                 query: "   ".to_owned(),
                 mode: ContentSearchMode::Content,
                 folder_id: None,
+                extension: None,
+                date_from: None,
+                date_to: None,
+                presence: None,
+                event_type: None,
                 limit: 10,
             },
         )

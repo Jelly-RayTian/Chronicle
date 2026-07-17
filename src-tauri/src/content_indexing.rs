@@ -289,9 +289,26 @@ pub fn search_files(
         return Ok(Vec::new());
     }
     let limit = request.limit.clamp(1, 200);
+    let ext = request
+        .extension
+        .as_deref()
+        .filter(|e| !e.trim().is_empty());
+    let from = request.date_from.as_deref();
+    let to = request.date_to.as_deref();
+    let presence_bool = request
+        .presence
+        .map(|p| matches!(p, crate::models::PresenceFilter::Present));
     match request.mode {
         ContentSearchMode::Filename => database
-            .search_filename(query, request.folder_id, limit)
+            .search_filename(
+                query,
+                request.folder_id,
+                ext,
+                from,
+                to,
+                presence_bool,
+                limit,
+            )
             .map(|files| {
                 files
                     .into_iter()
@@ -303,7 +320,7 @@ pub fn search_files(
                     .collect()
             }),
         ContentSearchMode::Content => database
-            .search_content(query, request.folder_id, limit)
+            .search_content(query, request.folder_id, ext, from, to, limit)
             .map(|results| {
                 results
                     .into_iter()
@@ -506,6 +523,11 @@ mod tests {
                 mode: ContentSearchMode::Content,
                 folder_id: Some(folder.id),
                 limit: 10,
+                extension: None,
+                date_from: None,
+                date_to: None,
+                presence: None,
+                event_type: None,
             },
         )
         .unwrap_or_else(|error| panic!("search should succeed: {error}"));
@@ -542,6 +564,11 @@ mod tests {
                 mode: ContentSearchMode::Content,
                 folder_id: Some(folder.id),
                 limit: 10,
+                extension: None,
+                date_from: None,
+                date_to: None,
+                presence: None,
+                event_type: None,
             },
         )
         .unwrap_or_else(|error| panic!("search should succeed: {error}"));
@@ -577,6 +604,11 @@ mod tests {
                 mode: ContentSearchMode::Content,
                 folder_id: Some(folder.id),
                 limit: 10,
+                extension: None,
+                date_from: None,
+                date_to: None,
+                presence: None,
+                event_type: None,
             },
         )
         .unwrap_or_else(|error| panic!("search should succeed: {error}"));
@@ -611,6 +643,11 @@ mod tests {
                     mode: ContentSearchMode::Content,
                     folder_id: Some(folder.id),
                     limit: 10,
+                    extension: None,
+                    date_from: None,
+                    date_to: None,
+                    presence: None,
+                    event_type: None,
                 },
             )
             .unwrap_or_else(|error| panic!("search should succeed: {error}"))
@@ -630,6 +667,11 @@ mod tests {
                     mode: ContentSearchMode::Content,
                     folder_id: Some(folder.id),
                     limit: 10,
+                    extension: None,
+                    date_from: None,
+                    date_to: None,
+                    presence: None,
+                    event_type: None,
                 },
             )
             .unwrap_or_else(|error| panic!("search should succeed: {error}"))
@@ -644,6 +686,11 @@ mod tests {
                     mode: ContentSearchMode::Content,
                     folder_id: Some(folder.id),
                     limit: 10,
+                    extension: None,
+                    date_from: None,
+                    date_to: None,
+                    presence: None,
+                    event_type: None,
                 },
             )
             .unwrap_or_else(|error| panic!("search should succeed: {error}"))
@@ -683,6 +730,11 @@ mod tests {
                 mode: ContentSearchMode::Content,
                 folder_id: Some(folder.id),
                 limit: 10,
+                extension: None,
+                date_from: None,
+                date_to: None,
+                presence: None,
+                event_type: None,
             },
         )
         .unwrap_or_else(|error| panic!("search should succeed: {error}"));
@@ -720,6 +772,11 @@ mod tests {
                 mode: ContentSearchMode::Content,
                 folder_id: Some(folder.id),
                 limit: 10,
+                extension: None,
+                date_from: None,
+                date_to: None,
+                presence: None,
+                event_type: None,
             },
         )
         .unwrap_or_else(|error| panic!("search should succeed: {error}"));
@@ -759,6 +816,11 @@ mod tests {
                 mode: ContentSearchMode::Content,
                 folder_id: Some(folder.id),
                 limit: 10,
+                extension: None,
+                date_from: None,
+                date_to: None,
+                presence: None,
+                event_type: None,
             },
         )
         .unwrap_or_else(|error| panic!("search should succeed: {error}"));
@@ -793,6 +855,11 @@ mod tests {
                 mode: ContentSearchMode::Content,
                 folder_id: None,
                 limit: 10,
+                extension: None,
+                date_from: None,
+                date_to: None,
+                presence: None,
+                event_type: None,
             },
         )
         .unwrap_or_else(|error| panic!("search should succeed: {error}"));
@@ -820,6 +887,11 @@ mod tests {
                 mode: ContentSearchMode::Filename,
                 folder_id: Some(folder.id),
                 limit: 10,
+                extension: None,
+                date_from: None,
+                date_to: None,
+                presence: None,
+                event_type: None,
             },
         )
         .unwrap_or_else(|error| panic!("search should succeed: {error}"));
@@ -856,6 +928,11 @@ mod tests {
                 mode: ContentSearchMode::Content,
                 folder_id: Some(folder.id),
                 limit: 10,
+                extension: None,
+                date_from: None,
+                date_to: None,
+                presence: None,
+                event_type: None,
             },
         )
         .unwrap_or_else(|error| panic!("search should succeed: {error}"));

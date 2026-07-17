@@ -808,6 +808,16 @@ pub struct SearchFilesRequest {
     pub query: String,
     pub mode: ContentSearchMode,
     pub folder_id: Option<i64>,
+    #[serde(default)]
+    pub extension: Option<String>,
+    #[serde(default)]
+    pub date_from: Option<String>,
+    #[serde(default)]
+    pub date_to: Option<String>,
+    #[serde(default)]
+    pub presence: Option<PresenceFilter>,
+    #[serde(default)]
+    pub event_type: Option<String>,
     pub limit: u32,
 }
 
