@@ -4,7 +4,8 @@ use crate::{
     database::Database,
     models::{
         ActivitySession, ActivitySessionDetail, ApplicationError, GenerateSessionsRequest,
-        GenerateSessionsResponse, ListSessionsRequest, SessionRequest, UpdateSessionRequest,
+        GenerateSessionsResponse, ListSessionsRequest, MergeSessionsRequest, SessionRequest,
+        UpdateSessionRequest,
     },
     sessions,
 };
@@ -62,4 +63,17 @@ pub fn reject_session(
     request: SessionRequest,
 ) -> Result<ActivitySession, ApplicationError> {
     sessions::reject_session(database.inner(), request).map_err(ApplicationError::from)
+}
+
+#[tauri::command]
+pub fn merge_sessions(
+    database: State<'_, Database>,
+    request: MergeSessionsRequest,
+) -> Result<ActivitySession, ApplicationError> {
+    sessions::merge_sessions(
+        database.inner(),
+        request.target_session_id,
+        request.source_session_id,
+    )
+    .map_err(ApplicationError::from)
 }

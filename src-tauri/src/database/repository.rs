@@ -3152,6 +3152,103 @@ impl Database {
         self.get_session(session_id).map(|detail| detail.session)
     }
 
+    pub fn merge_activity_sessions(
+        &self,
+        target_id: i64,
+        source_id: i64,
+    ) -> Result<ActivitySession, ChronicleError> {
+        if target_id == source_id {
+            return Err(ChronicleError::PathEncoding);
+        }
+        let now = now_rfc3339();
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction()?;
+
+        let target: ActivitySession = transaction
+            .query_row(
+                "SELECT id, project_id, title, started_at, ended_at, event_summary,
+                        status, created_at, updated_at
+                 FROM activity_sessions WHERE id = ?1",
+                [target_id],
+                map_activity_session,
+            )
+            .optional()?
+            .ok_or(ChronicleError::SessionNotFound)?;
+        let source: ActivitySession = transaction
+            .query_row(
+                "SELECT id, project_id, title, started_at, ended_at, event_summary,
+                        status, created_at, updated_at
+                 FROM activity_sessions WHERE id = ?1",
+                [source_id],
+                map_activity_session,
+            )
+            .optional()?
+            .ok_or(ChronicleError::SessionNotFound)?;
+
+        let merged_start = if target.started_at <= source.started_at {
+            &target.started_at
+        } else {
+            &source.started_at
+        };
+        let merged_end = if target.ended_at >= source.ended_at {
+            &target.ended_at
+        } else {
+            &source.ended_at
+        };
+
+        transaction.execute(
+            "UPDATE activity_session_events SET session_id = ?1 WHERE session_id = ?2",
+            params![target_id, source_id],
+        )?;
+        transaction.execute(
+            "INSERT OR IGNORE INTO activity_session_files (session_id, file_id)
+             SELECT ?1, file_id FROM activity_session_files WHERE session_id = ?2",
+            params![target_id, source_id],
+        )?;
+        transaction.execute(
+            "DELETE FROM activity_session_files WHERE session_id = ?1",
+            params![source_id],
+        )?;
+
+        let mut summary_parts = Vec::new();
+        let counts = transaction
+            .prepare(
+                "SELECT e.event_type, COUNT(*) FROM file_events e
+                 JOIN activity_session_events se ON se.event_id = e.id
+                 WHERE se.session_id = ?1 GROUP BY e.event_type",
+            )?
+            .query_map([target_id], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+            })?
+            .filter_map(|r| r.ok())
+            .map(|(kind, count)| format!("{} {}", count, kind))
+            .collect::<Vec<_>>();
+        summary_parts.extend(counts);
+        let summary = summary_parts.join(", ");
+
+        let new_title = format!("{} · (merged)", target.title);
+
+        transaction.execute(
+            "UPDATE activity_sessions
+             SET started_at = ?2, ended_at = ?3, event_summary = ?4,
+                 title = ?5, status = ?6, updated_at = ?7
+             WHERE id = ?1",
+            params![
+                target_id,
+                merged_start,
+                merged_end,
+                summary,
+                new_title,
+                "edited",
+                now,
+            ],
+        )?;
+        transaction.execute("DELETE FROM activity_sessions WHERE id = ?1", [source_id])?;
+        transaction.commit()?;
+        drop(connection);
+        self.get_session(target_id).map(|detail| detail.session)
+    }
+
     pub fn set_folder_content_indexing(
         &self,
         folder_id: i64,

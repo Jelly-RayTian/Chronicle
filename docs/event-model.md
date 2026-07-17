@@ -46,3 +46,26 @@ Watcher classification is path-based:
 - final missing temp path or path not known to Chronicle: no event.
 
 Confirmed rename or move detection is not implemented. Atomic replacement, save-as, and rename-like patterns may appear as delete plus create, or as modified when the final path is unchanged. Manual and startup reconciliation scans remain the recovery mechanism for missed watcher events.
+
+## Activity sessions
+
+Sessions are inferred groupings of Chronicle file events designed to answer "what did I work on during a sitting?" without tracking applications, windows, or input devices.
+
+### Algorithm
+
+1. Load up to 50 000 recent `file_events`, ordered by `detected_at` then `id`.
+2. Group events into sessions using a conservative time-gap threshold (default 30 minutes). Events closer than the gap stay in the same session; a gap larger than the threshold starts a new session.
+3. Each session is capped at 100 events. Sessions exceeding the cap are split.
+4. No more than 1 000 sessions are generated per run; remaining events are ignored.
+5. Project assignment uses a majority vote: each file in the session is mapped to its active project(s), and the project with the most file affiliations is assigned.
+6. The title is derived from the assigned project name (if any) plus a timestamp; otherwise a generic "Activity · timestamp" label.
+7. Generated sessions replace only `auto`-status sessions. User-edited, accepted, or rejected sessions are preserved.
+8. Merge: two sessions can be combined manually, moving all events and files to the target, recomputing the time range, and deleting the source.
+
+### Invariants
+
+- Sessions never read file contents, keyboard input, browser history, window titles, or screenshots.
+- Session boundaries are approximate; the time gap heuristic may merge or split real activity.
+- Chronicle never calculates productivity scores, focus ratings, or performance metrics.
+- Rejecting a session keeps it in the database but removes it from active views without deleting underlying events.
+- Merging sessions is idempotent for data: events are never duplicated.

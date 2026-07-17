@@ -23,6 +23,7 @@ import type {
   ListProjectsRequest,
   ListSessionsRequest,
   ListVersionFamiliesRequest,
+  MergeSessionsRequest,
   MergeVersionFamiliesRequest,
   PathHistoryItem,
   Project,
@@ -116,6 +117,7 @@ export interface AppData {
   updateSession: (request: UpdateSessionRequest) => Promise<ActivitySession>;
   acceptSession: (request: SessionRequest) => Promise<ActivitySession>;
   rejectSession: (request: SessionRequest) => Promise<ActivitySession>;
+  mergeSessions: (request: MergeSessionsRequest) => Promise<ActivitySession>;
   enableFolderContentIndexing: (
     request: EnableFolderContentIndexingRequest,
   ) => Promise<IndexedFolder>;

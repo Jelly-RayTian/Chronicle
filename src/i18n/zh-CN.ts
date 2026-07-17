@@ -266,6 +266,9 @@ export const zhCN = {
     reject: '拒绝',
     titlePlaceholder: '会话标题',
     noProductivityScore: 'Chronicle 不计算生产力评分。',
+    merge: '合并',
+    mergeHint: '选择一个要合并的会话。点击另一个会话卡片完成合并。',
+    mergeTarget: '选择目标',
   },
   search: {
     title: '搜索',

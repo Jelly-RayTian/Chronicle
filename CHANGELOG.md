@@ -4,6 +4,15 @@ All notable changes to Chronicle are documented here. The format follows Keep a 
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-07-07
+
+### Added
+
+- Merge sessions command: combine two adjacent sessions into one. Moves all events and files from source to target, recomputes time range and event summary, and deletes the source session.
+- Session card improvements: duration display, per-type event breakdown (created/modified/deleted tags), project chip.
+- Session details now show event-type breakdowns and formatted timestamps with duration.
+- Documented session inference algorithm: conservative time-gap splitting (default 30 min), project-majority assignment, 100 event cap per session, 1000 session cap.
+
 ## [1.1.0] - 2026-07-07
 
 ### Added

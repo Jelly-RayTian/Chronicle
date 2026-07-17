@@ -274,6 +274,9 @@ export const en = {
     reject: 'Reject',
     titlePlaceholder: 'Session title',
     noProductivityScore: 'Chronicle does not calculate productivity scores.',
+    merge: 'Merge',
+    mergeHint: 'Select a session to merge into. Click another session card to complete the merge.',
+    mergeTarget: 'Select target',
   },
   search: {
     title: 'Search',

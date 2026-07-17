@@ -404,6 +404,11 @@ export interface ListSessionsRequest {
   projectId: number | null;
 }
 
+export interface MergeSessionsRequest {
+  targetSessionId: number;
+  sourceSessionId: number;
+}
+
 export interface GenerateSessionsRequest {
   gapMinutes: number | null;
 }
