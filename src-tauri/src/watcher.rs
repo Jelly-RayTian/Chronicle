@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, HashSet},
     fs,
     path::{Component, Path, PathBuf},
     sync::{
@@ -276,6 +276,7 @@ fn run_watcher_thread(
     };
 
     let mut pending = BTreeMap::<String, PathBuf>::new();
+    let mut seen_raw_paths = HashSet::<PathBuf>::new();
     let coalescing_window = Duration::from_millis(coalescing_window_ms.clamp(100, 60_000));
     let mut next_flush: Option<Instant> = None;
 
@@ -293,22 +294,22 @@ fn run_watcher_thread(
                     continue;
                 }
                 for raw_path in event.paths {
-                    match normalize_raw_event_path(&root, &raw_path) {
-                        Ok(normalized) => {
-                            if pending.len() >= MAX_PENDING_EVENTS
-                                && !pending.contains_key(&normalized)
-                            {
-                                pending.clear();
-                                let _ = database.mark_watcher_error(
-                                    folder.id,
-                                    WatcherRuntimeState::Error,
-                                    "event_storm",
-                                    "too many filesystem events arrived before coalescing",
-                                );
-                                return;
+                    match queue_raw_path(&root, raw_path, &mut seen_raw_paths, &mut pending) {
+                        Ok(queued) => {
+                            if queued {
+                                next_flush = Some(Instant::now() + coalescing_window);
                             }
-                            pending.insert(normalized, raw_path);
-                            next_flush = Some(Instant::now() + coalescing_window);
+                        }
+                        Err(ChronicleError::EventStorm) => {
+                            pending.clear();
+                            seen_raw_paths.clear();
+                            let _ = database.mark_watcher_error(
+                                folder.id,
+                                WatcherRuntimeState::Error,
+                                "event_storm",
+                                "too many filesystem events arrived before coalescing",
+                            );
+                            return;
                         }
                         Err(_) => {
                             let _ = database.mark_watcher_error(
@@ -336,6 +337,7 @@ fn run_watcher_thread(
                 {
                     let paths = pending.values().cloned().collect::<Vec<_>>();
                     pending.clear();
+                    seen_raw_paths.clear();
                     next_flush = None;
                     match process_debounced_paths(&database, folder.id, &root, &paths) {
                         Ok(_) => {}
@@ -407,6 +409,37 @@ fn normalize_raw_event_path(root: &Path, raw_path: &Path) -> Result<String, Chro
         return Err(ChronicleError::UnauthorizedEventPath);
     }
     path_to_string(&normalized)
+}
+
+fn queue_raw_path(
+    root: &Path,
+    raw_path: PathBuf,
+    seen_raw_paths: &mut HashSet<PathBuf>,
+    pending: &mut BTreeMap<String, PathBuf>,
+) -> Result<bool, ChronicleError> {
+    if seen_raw_paths.contains(&raw_path) {
+        return Ok(false);
+    }
+    if seen_raw_paths.len() >= MAX_PENDING_EVENTS {
+        return Err(ChronicleError::EventStorm);
+    }
+    let normalized = normalize_raw_event_path(root, &raw_path)?;
+    seen_raw_paths.insert(raw_path.clone());
+    pending.insert(normalized, raw_path);
+    Ok(true)
+}
+
+#[cfg(test)]
+pub(crate) fn coalesce_paths_for_test(
+    root: &Path,
+    raw_paths: &[PathBuf],
+) -> Result<Vec<PathBuf>, ChronicleError> {
+    let mut seen_raw_paths = HashSet::<PathBuf>::new();
+    let mut pending = BTreeMap::<String, PathBuf>::new();
+    for raw_path in raw_paths {
+        queue_raw_path(root, raw_path.clone(), &mut seen_raw_paths, &mut pending)?;
+    }
+    Ok(pending.into_values().collect())
 }
 
 fn is_temporary_path(path: &Path) -> bool {
@@ -504,7 +537,9 @@ mod tests {
         scanner,
     };
 
-    use super::{normalize_raw_event_path, process_debounced_paths_for_test};
+    use super::{
+        coalesce_paths_for_test, normalize_raw_event_path, process_debounced_paths_for_test,
+    };
 
     fn setup() -> (TempDir, Database, PathBuf, i64) {
         let directory = tempfile::tempdir()
@@ -540,6 +575,25 @@ mod tests {
                 counts.errors,
             )
             .unwrap_or_else(|error| panic!("scan should publish: {error}"));
+    }
+
+    #[test]
+    fn raw_burst_coalescing_discards_duplicate_paths_before_publication() {
+        let (_directory, _database, root, _folder_id) = setup();
+        let first = root.join("first.txt");
+        let second = root.join("second.txt");
+        fs::write(&first, b"first").unwrap_or_else(|error| panic!("write first: {error}"));
+        fs::write(&second, b"second").unwrap_or_else(|error| panic!("write second: {error}"));
+        let raw_paths = vec![
+            first.clone(),
+            second.clone(),
+            first.clone(),
+            second.clone(),
+            first,
+        ];
+        let coalesced = coalesce_paths_for_test(&root, &raw_paths)
+            .unwrap_or_else(|error| panic!("burst should coalesce: {error}"));
+        assert_eq!(coalesced.len(), 2);
     }
 
     #[test]

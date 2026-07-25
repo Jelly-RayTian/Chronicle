@@ -17,6 +17,7 @@ use crate::{
 };
 
 const DEFAULT_MAX_BYTES: i64 = 1_048_576;
+pub const MAX_CONTENT_INDEX_BYTES: i64 = 8_388_608;
 const DEFAULT_EXTENSIONS: &str = "txt,md,rs,js,ts,jsx,tsx,py,go,java,c,cpp,h,hpp,swift,kotlin,rb,php,json,yaml,yml,toml,sh,bash,zsh,ps1,html,css,scss,sql";
 const DEFAULT_EXCLUSION_PATTERNS: &str = ".env,.env.*,*.key,*.pem,*.crt,*.p12,*.pfx,id_rsa,id_ed25519,id_ecdsa,.htpasswd,.npmrc,.pypirc,netrc";
 
@@ -124,12 +125,13 @@ fn is_eligible(file: &FileRecord, folder: &IndexedFolder) -> bool {
 }
 
 fn read_limited_text(path: &Path, max_bytes: i64) -> Result<Option<String>, ChronicleError> {
-    let max_bytes_usize = usize::try_from(max_bytes.max(0)).unwrap_or(usize::MAX);
+    let effective_max_bytes = max_bytes.clamp(0, MAX_CONTENT_INDEX_BYTES);
+    let max_bytes_usize = usize::try_from(effective_max_bytes).unwrap_or(0);
     let metadata = fs::symlink_metadata(path).map_err(classify_io_error)?;
     if metadata.file_type().is_symlink() || !metadata.is_file() {
         return Ok(None);
     }
-    if metadata.len() > u64::try_from(max_bytes).unwrap_or(u64::MAX) {
+    if metadata.len() > u64::try_from(effective_max_bytes).unwrap_or(0) {
         return Ok(None);
     }
     let mut file = fs::File::open(path).map_err(classify_io_error)?;

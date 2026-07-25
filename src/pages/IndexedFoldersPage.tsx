@@ -23,6 +23,9 @@ interface ContentEditingState {
   expanded: boolean;
 }
 
+const LARGE_FOLDER_WARNING_FILES = 10_000;
+const MAX_CONTENT_INDEX_BYTES = 8_388_608;
+
 const formatTime = (value: string | null, locale: string, never: string) =>
   value
     ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(
@@ -230,6 +233,14 @@ export const IndexedFoldersPage = () => {
                       </span>
                     </div>
                     {running ? <progress aria-label={t('folders.scan.running')} /> : null}
+                    {scan.filesSeen >= LARGE_FOLDER_WARNING_FILES ? (
+                      <p className="large-folder-warning" role="status">
+                        <Warning size={16} aria-hidden="true" />
+                        {t('folders.scan.largeFolderWarning', {
+                          count: scan.filesSeen.toLocaleString(i18n.language),
+                        })}
+                      </p>
+                    ) : null}
                   </div>
                 ) : null}
                 <div className="folder-actions">
@@ -374,12 +385,14 @@ export const IndexedFoldersPage = () => {
                         <input
                           type="number"
                           min={1024}
+                          max={MAX_CONTENT_INDEX_BYTES}
                           step={1024}
                           value={ensureEditingState(folder).maxBytes}
                           onChange={(event) =>
                             updateEditingState(folder, { maxBytes: event.target.value })
                           }
                         />
+                        <small>{t('folders.contentIndexing.maxBytesLimit')}</small>
                       </label>
                       <label>
                         <span>{t('folders.contentIndexing.exclusions')}</span>

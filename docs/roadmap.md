@@ -78,6 +78,17 @@ tracking, automatic file organization, productivity scores, analytics, or destru
 
 Milestone 7 does not add automatic cloud indexing, AI search, binary-file indexing, OCR, PDF/DOCX extraction, or productivity scoring.
 
+## v1.4.0: Performance & Scale
+
+- Reproducible 1,000-, 10,000-, and optional 50,000-file temporary fixtures.
+- Separate scan, 10%-move reconciliation, timeline, filename-search, watcher-burst, and SQLite-footprint measurements.
+- Measured scan staging and watcher duplicate-path optimizations.
+- Large-folder warning, 8 MiB content-index hard cap, bounded timeline/search payloads, and watcher storm stop.
+- Browser rendering containment for off-screen timeline and search cards.
+
+v1.4.0 does not add a speculative storage rewrite, new tracking source, analytics,
+cloud services, productivity metrics, or unrelated features.
+
 ## Later exploration
 
 Any additional identity inference, higher-level grouping, or new extraction formats require a separate milestone, privacy review, and tests.

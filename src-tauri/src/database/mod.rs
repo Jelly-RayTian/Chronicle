@@ -107,7 +107,7 @@ mod tests {
         );
         drop(statement);
         drop(connection);
-        assert_eq!(database.schema_version().unwrap_or_default(), 9);
+        assert_eq!(database.schema_version().unwrap_or_default(), 10);
     }
 
     #[test]
@@ -128,6 +128,29 @@ mod tests {
         assert!(page.items.is_empty());
         assert_eq!(page.next_cursor, None);
         assert!(!page.has_more);
+    }
+
+    #[test]
+    fn database_rejects_content_index_limits_above_the_release_cap() {
+        let (directory, database) = new_database();
+        let root = directory.path().join("root");
+        std::fs::create_dir(&root)
+            .unwrap_or_else(|error| panic!("fixture root should be created: {error}"));
+        let folder = crate::folders::register_folder(&database, &root.to_string_lossy())
+            .unwrap_or_else(|error| panic!("fixture folder should register: {error}"))
+            .folder;
+        let result = database.set_folder_content_indexing(
+            folder.id,
+            true,
+            None,
+            Some(crate::content_indexing::MAX_CONTENT_INDEX_BYTES + 1),
+            None,
+        );
+        assert!(result.is_err(), "V10 must enforce the hard limit in SQLite");
+        let unchanged = database
+            .get_indexed_folder(folder.id)
+            .unwrap_or_else(|error| panic!("folder should remain readable: {error}"));
+        assert_eq!(unchanged.content_indexing_max_bytes, 1_048_576);
     }
 
     #[test]
@@ -223,7 +246,7 @@ mod tests {
 
         let database = Database::open(&path)
             .unwrap_or_else(|error| panic!("database should open and migrate: {error}"));
-        assert_eq!(database.schema_version().unwrap_or_default(), 9);
+        assert_eq!(database.schema_version().unwrap_or_default(), 10);
         let folders = database
             .list_indexed_folders()
             .unwrap_or_else(|error| panic!("folders should list: {error}"));

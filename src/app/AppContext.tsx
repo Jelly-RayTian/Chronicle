@@ -264,7 +264,7 @@ export const AppProvider = ({ children, client = tauriClient }: AppProviderProps
           }
         }),
       );
-    }, 400);
+    }, 750);
     return () => globalThis.clearInterval(timer);
   }, [client, refreshFolders, scans]);
 

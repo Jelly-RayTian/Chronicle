@@ -17,7 +17,9 @@ use crate::{
     tasks::ScanTaskManager,
 };
 
-const BATCH_SIZE: usize = 256;
+// Large scans stage enough rows per transaction to amortize SQLite commit overhead while
+// keeping cancellation and progress updates responsive.
+const BATCH_SIZE: usize = 1_024;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DiscoveredFile {

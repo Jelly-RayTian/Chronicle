@@ -2,7 +2,7 @@
 
 Chronicle is a privacy-first desktop application for rediscovering local files through time and context. It is being built as a real Tauri application, not a website, cloud drive, employee-monitoring tool, analytics dashboard, or AI chat wrapper.
 
-## v1.0.0-rc.1
+## v1.4.0
 
 Chronicle is approaching its first release candidate. It is a local, privacy-first file activity index built as a real Tauri desktop application—not a website, cloud drive, employee-monitoring tool, analytics dashboard, or AI chat wrapper.
 
@@ -22,14 +22,14 @@ What is included in this release candidate:
 - activity sessions inferred from file events;
 - a sanitized diagnostics export that includes counts and status only—no paths, names, or contents;
 - Simplified Chinese and English interfaces;
-- automated frontend and Rust tests, including migration upgrade and performance checks;
+- automated frontend and Rust tests, including migration upgrades and reproducible 1k/10k/optional-50k performance benchmarks;
 - Windows installer packaging and a GitHub Actions release workflow.
 
 Chronicle does **not** read file contents unless content indexing is explicitly enabled for a folder, hash files, use AI, monitor hidden folders, upload data, or perform destructive file operations against original files. Watcher history is best-effort and not a perfect audit log.
 
 ## Download
 
-Prebuilt Windows installers are available on the [Releases](https://github.com/Jelly-RayTian/Chronicle/releases) page. The latest release is `v1.2.0`.
+Prebuilt Windows installers are published on the [Releases](https://github.com/Jelly-RayTian/Chronicle/releases) page from matching version tags.
 
 ## Screenshots
 
@@ -110,7 +110,9 @@ Read [Architecture](docs/architecture.md) and [Database](docs/database.md) for d
 - [Known limitations](docs/known-limitations.md)
 - [Roadmap](docs/roadmap.md)
 - [Testing](docs/testing.md)
+- [Performance benchmarks](docs/benchmarks.md)
+- [v1.4.0 release notes](docs/release-notes-v1.4.0.md)
 
 ## Project status
 
-Chronicle is at v1.2.0. The database and timeline are intentionally empty until the user authorizes a folder and completes a scan or explicitly enables monitoring; no fake production data is created.
+Chronicle is at v1.4.0. The database and timeline are intentionally empty until the user authorizes a folder and completes a scan or explicitly enables monitoring; no fake production data is created.

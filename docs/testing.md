@@ -35,14 +35,27 @@ Rust tests use temporary directories and SQLite databases. Coverage includes:
 - session generation (time-gap splitting, project linking, title editing) and explicit verification that
   session summaries contain no productivity scores.
 - content-indexing disabled-by-default behavior, explicit per-folder opt-in, TXT/Markdown/source-code extraction,
-  file-size limits, default secret-file exclusions, incremental update after file changes, deletion sync,
+  default and hard file-size limits, V10 database enforcement, default secret-file exclusions, incremental update after file changes, deletion sync,
   folder disable and clear-index removal, sanitized snippet escaping, and filename-only search.
+- watcher raw-path deduplication before canonicalization, bounded storm handling, large-folder UI warning,
+  and fixed native timeline/search page limits.
 
 ```powershell
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
 Tests never use a production Chronicle database or modify files outside temporary fixtures.
+
+## Performance suite
+
+The ignored release-profile suite generates temporary 1,000- and 10,000-file
+fixtures by default and accepts an optional 50,000-file count. It measures scan
+staging, atomic reconciliation after deterministic moves, warmed timeline and
+filename-search medians, watcher burst coalescing, and SQLite bytes. It has no
+absolute timing assertion because hardware and filesystem conditions vary.
+
+See [Performance benchmarks](benchmarks.md) for the exact command, environment,
+methodology, results, and limitations.
 
 ## Visual verification
 

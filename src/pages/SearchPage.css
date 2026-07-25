@@ -185,3 +185,7 @@
   padding: 10px 12px;
   margin: 0;
 }
+.search-results-list > li {
+  contain-intrinsic-size: auto 116px;
+  content-visibility: auto;
+}

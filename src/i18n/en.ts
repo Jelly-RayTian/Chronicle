@@ -154,6 +154,7 @@ export const en = {
       save: 'Save settings',
       extensions: 'Indexed extensions',
       maxBytes: 'Max file size (bytes)',
+      maxBytesLimit: 'Hard limit: 8 MiB per file.',
       exclusions: 'Excluded patterns',
       localOnly:
         'Contents are stored in your local SQLite database and are never uploaded or analyzed by AI.',
@@ -173,6 +174,8 @@ export const en = {
       failed: 'Scan failed; previous snapshot kept',
       cancelled: 'Cancelled; previous snapshot kept',
       counts: '{{files}} files · {{warnings}} warnings · {{errors}} errors',
+      largeFolderWarning:
+        'Large folder: {{count}} files. Scanning and local content indexing may take longer.',
     },
     watcher: {
       stopped: 'Monitoring stopped',

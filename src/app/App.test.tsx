@@ -166,6 +166,27 @@ describe('Chronicle application', () => {
     expect(screen.getByText(/never delete your original files/i)).toBeInTheDocument();
   });
 
+  it('warns when a completed scan reaches the large-folder threshold', async () => {
+    const user = userEvent.setup();
+    const client = readyClient();
+    client.listIndexedFolders = vi.fn().mockResolvedValue([folder]);
+    client.startFolderScan = vi.fn().mockResolvedValue({
+      scanRunId: 42,
+      indexedFolderId: folder.id,
+      status: 'completed',
+      filesSeen: 10_000,
+      warningCount: 0,
+      errorCount: 0,
+      cancellable: false,
+    });
+    render(<App client={client} />);
+
+    await user.click(screen.getByRole('button', { name: 'Indexed folders' }));
+    await user.click(await screen.findByRole('button', { name: 'Scan metadata' }));
+
+    expect(await screen.findByText(/Large folder: 10,000 files/i)).toBeInTheDocument();
+  });
+
   it('registers a selected folder and reports nested-root overlap', async () => {
     const user = userEvent.setup();
     const client = readyClient();

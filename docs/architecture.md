@@ -15,6 +15,20 @@ React owns presentation state, debounced filters, timeline grouping, pagination 
 
 Rust resolves every scan from an indexed-folder id stored in SQLite. The scanner reads directory entries and metadata inside that authorized root without following symbolic links. Database code owns staging, reconciliation, immutable event persistence, filters, histories, and transaction boundaries. Platform code validates a present path against its authorized root before an explicit open or reveal request.
 
+## v1.4 performance boundaries
+
+Scanner discovery stages up to 1,024 metadata rows per SQLite transaction. This
+is also the progress-persistence cadence; React polls running scan status every
+750 ms. Timeline uses descending event-id keyset pagination, accepts at most 100
+rows per native request, and the UI requests 30. Timeline and search cards use
+browser rendering containment so off-screen cards do not require layout and
+paint work.
+
+Watcher bursts first discard identical raw paths, then canonicalize and validate
+each unique path against the authorized root. No validation is skipped. A batch
+may retain at most 4,096 unique pending paths; an overflow stops the watcher
+without publishing synthetic deletion events.
+
 ## Milestone 2 scan and reconciliation flow
 
 1. A thin command starts a scan by folder id.

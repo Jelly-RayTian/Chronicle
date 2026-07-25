@@ -128,6 +128,10 @@
   margin: 0;
   padding: 0;
 }
+.timeline-group li {
+  contain-intrinsic-size: auto 76px;
+  content-visibility: auto;
+}
 .event-card {
   align-items: center;
   background: var(--surface-raised);

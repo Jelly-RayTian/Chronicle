@@ -215,6 +215,14 @@
   height: 5px;
   accent-color: var(--accent);
 }
+.large-folder-warning {
+  align-items: center;
+  color: #9a5f1d;
+  display: flex;
+  font-size: 11px;
+  gap: 6px;
+  margin: 0;
+}
 .modal-backdrop {
   position: fixed;
   z-index: 20;

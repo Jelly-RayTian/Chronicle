@@ -23,11 +23,14 @@ fn enable_folder_content_indexing_impl(
     request: EnableFolderContentIndexingRequest,
 ) -> Result<crate::models::IndexedFolder, ChronicleError> {
     let folder = database.get_indexed_folder(request.folder_id)?;
+    let max_bytes = request
+        .max_bytes
+        .map(|value| value.clamp(1, content_indexing::MAX_CONTENT_INDEX_BYTES));
     database.set_folder_content_indexing(
         request.folder_id,
         true,
         request.extensions.as_deref(),
-        request.max_bytes,
+        max_bytes,
         request.exclusion_patterns.as_deref(),
     )?;
     let _ = content_indexing::sync_folder(database, request.folder_id);
@@ -179,5 +182,24 @@ mod tests {
                 .unwrap_or_else(|error| panic!("reindex should succeed: {error}"));
         assert_eq!(result.files_indexed, 0);
         assert_eq!(result.files_removed, 0);
+    }
+
+    #[test]
+    fn content_indexing_size_is_clamped_to_the_hard_limit() {
+        let (_directory, database, _root, folder_id) = setup();
+        let folder = enable_folder_content_indexing_impl(
+            &database,
+            EnableFolderContentIndexingRequest {
+                folder_id,
+                extensions: None,
+                max_bytes: Some(i64::MAX),
+                exclusion_patterns: None,
+            },
+        )
+        .unwrap_or_else(|error| panic!("enable should clamp the limit: {error}"));
+        assert_eq!(
+            folder.content_indexing_max_bytes,
+            crate::content_indexing::MAX_CONTENT_INDEX_BYTES
+        );
     }
 }

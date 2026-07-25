@@ -1,6 +1,6 @@
 # Known limitations
 
-This document summarizes the current known limitations of Chronicle v1.2.0. It is honest about what the current release does not guarantee so users and contributors can set the right expectations.
+This document summarizes the current known limitations of Chronicle v1.4.0. It is honest about what the current release does not guarantee so users and contributors can set the right expectations.
 
 ## Platform support
 
@@ -49,6 +49,14 @@ This document summarizes the current known limitations of Chronicle v1.2.0. It i
 - Indexed contents are stored only in the local SQLite database and are never uploaded or analyzed by AI.
 - Secret-file exclusions are provided as defaults; users should review and adjust them for their environment.
 - Clearing the content index or disabling content indexing for a folder removes indexed rows but does not delete original files.
+- The per-file default is 1 MiB and the hard maximum is 8 MiB. Files above the configured limit are skipped; Chronicle does not stream or partially index them.
+
+## Performance and scale
+
+- The published benchmark is a single-machine sample, not a latency guarantee. Antivirus, filesystem, storage, permissions, directory shape, and background load can materially change results.
+- 50,000 files are included as an optional practical fixture. Larger trees are not certified by v1.4.0.
+- Peak resident memory is not reported because the current dependency set has no trustworthy cross-platform measurement path. SQLite file bytes are reported as a reproducible storage proxy.
+- Watcher storms above 4,096 unique pending paths stop monitoring rather than risking an unbounded queue. Run a complete metadata scan before resuming.
 
 ## Diagnostics
 

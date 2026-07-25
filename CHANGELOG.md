@@ -4,6 +4,27 @@ All notable changes to Chronicle are documented here. The format follows Keep a 
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-07-25
+
+### Added
+
+- Reproducible release-profile benchmarks for 1,000, 10,000, and optional 50,000-file generated fixtures, covering scan, reconciliation, timeline, filename search, watcher bursts, and SQLite footprint.
+- Large-folder warning after a scan observes at least 10,000 files.
+- V10 migration enforcing a 1-byte to 8-MiB content-indexing size range.
+- Honest benchmark methodology, results, limits, and v1.4.0 release notes.
+
+### Changed
+
+- Increased metadata staging batches from 256 to 1,024 rows and reduced frontend scan-status polling to 750 ms.
+- Deduplicate repeated raw watcher paths before authorized-root canonicalization.
+- Skip off-screen timeline and search-card layout and paint work using browser rendering containment.
+- Bumped application manifests to v1.4.0.
+
+### Security
+
+- Content reads are capped at 8 MiB even when an older or malformed configuration requests more.
+- Watcher burst optimization retains canonical authorized-root validation and the existing 4,096-unique-path storm stop.
+
 ## [1.2.0] - 2026-07-07
 
 ### Added

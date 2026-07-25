@@ -150,6 +150,7 @@ export const zhCN = {
       save: '保存设置',
       extensions: '索引扩展名',
       maxBytes: '单文件大小上限（字节）',
+      maxBytesLimit: '硬性上限：每个文件 8 MiB。',
       exclusions: '排除规则',
       localOnly: '内容仅保存在本地 SQLite 数据库中，不会上传，也不会由 AI 分析。',
       disabledNote: '开启后可搜索该文件夹内的 .txt、.md 及支持的源代码文件内容。',
@@ -167,6 +168,7 @@ export const zhCN = {
       failed: '扫描失败，已保留原快照',
       cancelled: '扫描已取消，已保留原快照',
       counts: '{{files}} 个文件 · {{warnings}} 个警告 · {{errors}} 个错误',
+      largeFolderWarning: '大文件夹：{{count}} 个文件。扫描和本地内容索引可能需要更长时间。',
     },
     watcher: {
       stopped: '监控已停止',
