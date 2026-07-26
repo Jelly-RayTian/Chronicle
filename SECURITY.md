@@ -16,6 +16,12 @@ Scan commands accept a registered folder id rather than an arbitrary path. Incom
 
 Dependencies are locked with `package-lock.json` and `Cargo.lock`. Security-sensitive dependency updates should run all tests, the migration upgrade test, and rebuild the installer.
 
+Release tags must exactly match all npm, Cargo, and Tauri versions. The Windows
+artifact validator checks the PE header, minimum size, Authenticode state, and
+SHA-256 digest before GitHub Release creation. v2.0.0 installers are not
+code-signed; users should verify the published SHA-256 digest and expect a
+Windows reputation warning. An unsigned build is never described as signed.
+
 ## Data safety
 
 Clearing Chronicle data must only remove Chronicle's own database and settings. It must never delete, modify, or move original files.

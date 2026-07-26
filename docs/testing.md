@@ -59,7 +59,15 @@ methodology, results, and limitations.
 
 ## Visual verification
 
-Run `npm run tauri dev` and verify Timeline, Indexed folders, Settings, Versions, Projects, Sessions, and Search in English and Simplified Chinese. Inspect normal and narrow windows, light/dark themes, active filters, pagination, detail drawer, present/deleted actions, monitoring enable/pause/resume/disable states, version-family suggestions with confidence/evidence, accept/reject/split/merge/add/remove actions, project creation/suggestion/accept/reject/member editing, session generation/accept/reject/title editing, content-indexing enable/disable/reindex/edit controls, filename and content search modes, sanitized snippets, long paths, keyboard focus, and empty/error states. A visual claim requires a current screenshot or direct inspection.
+Run `npm run tauri dev` with an isolated application-data profile and verify Timeline, Indexed folders, Settings, Versions, Projects, Sessions, and Search in English and Simplified Chinese. Inspect normal and narrow windows, light/dark themes, active filters, pagination, detail drawer, present/deleted actions, monitoring enable/pause/resume/disable states, version-family suggestions with confidence/evidence, accept/reject/split/merge/add/remove actions, project creation/suggestion/accept/reject/member editing, session generation/accept/reject/title editing, content-indexing enable/disable/reindex/edit controls, filename and content search modes, sanitized snippets, long paths, keyboard focus, and empty/error states. A visual claim requires a current screenshot or direct inspection. See [Accessibility](accessibility.md) and [Smoke test](smoke-test-checklist.md).
+
+## Release validation
+
+`npm run release:validate -- --tag v2.0.0` checks stable semver alignment
+across npm, Cargo, Cargo.lock, and Tauri and requires the matching release-notes
+file. After building, `./scripts/validate-windows-artifacts.ps1` verifies one
+NSIS PE installer, records its Authenticode state, and writes
+`dist/release/SHA256SUMS.txt`.
 
 ## Continuous integration
 

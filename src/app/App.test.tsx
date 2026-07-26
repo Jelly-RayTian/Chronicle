@@ -110,6 +110,16 @@ const watcherStatus = {
 };
 
 describe('Chronicle application', () => {
+  it('offers keyboard users a skip link to the main content', async () => {
+    render(<App client={readyClient()} />);
+
+    expect(await screen.findByRole('link', { name: 'Skip to main content' })).toHaveAttribute(
+      'href',
+      '#main-content',
+    );
+    expect(document.querySelector('main#main-content')).toBeInTheDocument();
+  });
+
   beforeEach(async () => {
     globalThis.localStorage.clear();
     await i18n.changeLanguage('en');

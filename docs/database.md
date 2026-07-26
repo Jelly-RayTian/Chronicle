@@ -109,3 +109,10 @@ Timeline pagination is stable descending keyset pagination by event id. Filters 
 Timeline requests are clamped to 100 rows. Filename/content search requests are
 clamped to 200 rows. The production UI requests 30 timeline rows and 50 search
 rows, preventing a single native call from returning an unbounded payload.
+
+## Public-release database contract
+
+v2.0.0 adds no migration and does not edit released migrations V1 through V10.
+The release revalidates fresh database creation, V1 upgrade with data
+preservation, atomic scan publication, index-only removal, and content-index
+clearing without touching original files.

@@ -2,6 +2,7 @@ export const zhCN = {
   app: {
     name: 'Chronicle',
     tagline: '在时间与上下文中，重新找到本地工作。',
+    skipToContent: '跳到主要内容',
   },
   navigation: {
     timeline: '时间线',

@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useAppData } from '../app/AppDataContext';
 import { EmptyState, ErrorState, LoadingState } from '../components/states/ContentState';
+import { useDialogFocus } from '../hooks/useDialogFocus';
 import type { IndexedFolder, NestedFolderWarning } from '../models';
 import './IndexedFoldersPage.css';
 
@@ -56,6 +57,9 @@ export const IndexedFoldersPage = () => {
   } = useAppData();
   const [adding, setAdding] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<IndexedFolder | null>(null);
+  const removeDialogRef = useDialogFocus<HTMLElement>(removeTarget !== null, () =>
+    setRemoveTarget(null),
+  );
   const [nestedWarnings, setNestedWarnings] = useState<NestedFolderWarning[]>([]);
   const [contentEditing, setContentEditing] = useState<Record<number, ContentEditingState>>({});
 
@@ -423,10 +427,12 @@ export const IndexedFoldersPage = () => {
       {removeTarget ? (
         <div className="modal-backdrop" role="presentation">
           <section
+            ref={removeDialogRef}
             className="confirmation-dialog"
             role="dialog"
             aria-modal="true"
             aria-labelledby="remove-title"
+            tabIndex={-1}
           >
             <h3 id="remove-title">
               {t('folders.removeTitle', { name: removeTarget.displayName })}

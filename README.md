@@ -1,64 +1,60 @@
 # Chronicle
 
-Chronicle is a privacy-first desktop application for rediscovering local files through time and context. It is being built as a real Tauri application, not a website, cloud drive, employee-monitoring tool, analytics dashboard, or AI chat wrapper.
+Chronicle is a privacy-first Windows desktop application for rediscovering local files through time and context. It is a real Tauri application, not a website, cloud drive, employee-monitoring tool, analytics dashboard, or AI chat wrapper.
 
-## v1.4.0
+## v2.0.0
 
-Chronicle is approaching its first release candidate. It is a local, privacy-first file activity index built as a real Tauri desktop application—not a website, cloud drive, employee-monitoring tool, analytics dashboard, or AI chat wrapper.
+Chronicle v2.0.0 is the first public-release-quality build. This milestone turns the tested product into a verifiable release: aligned versions, gated tag publishing, validated Windows artifacts, honest limitations, accessibility fixes, privacy/security evidence, and a repeatable smoke-test path.
 
-What is included in this release candidate:
+Included:
 
-- a Tauri 2 desktop shell with React and strict TypeScript;
-- a Rust service core behind typed Tauri commands;
-- a local SQLite database with versioned migrations and upgrade tests;
-- a database-backed Timeline with grouping, search, filters, pagination, details, and histories;
-- native folder selection, persistent indexed roots, availability states, and explicit index removal;
-- cancellable, batched Rust metadata scans with atomic created, modified, deleted, and unchanged reconciliation;
-- explicitly enabled native filesystem monitoring with debounce, metadata recheck, event coalescing, and status/error controls;
-- manual and startup reconciliation scans for missed watcher events;
-- opt-in local content indexing for `.txt`, `.md`, and supported source-code files, with filename and content search;
-- suggested and user-editable version families;
-- suggested and user-editable projects with manual membership;
-- activity sessions inferred from file events;
-- a sanitized diagnostics export that includes counts and status only—no paths, names, or contents;
-- Simplified Chinese and English interfaces;
-- automated frontend and Rust tests, including migration upgrades and reproducible 1k/10k/optional-50k performance benchmarks;
-- Windows installer packaging and a GitHub Actions release workflow.
+- Tauri 2, React, strict TypeScript, Rust, and bundled SQLite;
+- explicit folder authorization and cancellable atomic metadata scans;
+- database-backed Timeline, filtering, keyset pagination, details, and histories;
+- explicitly enabled filesystem monitoring with coalescing and storm protection;
+- opt-in local text content indexing with size and exclusion limits;
+- user-reviewable version families, projects, and activity sessions;
+- sanitized diagnostics with counts and status only;
+- English and Simplified Chinese interfaces;
+- migration, safety, UI, and reproducible scale tests;
+- validated Windows NSIS packaging and gated GitHub Releases.
 
-Chronicle does **not** read file contents unless content indexing is explicitly enabled for a folder, hash files, use AI, monitor hidden folders, upload data, or perform destructive file operations against original files. Watcher history is best-effort and not a perfect audit log.
+Chronicle does not read file contents unless content indexing is explicitly enabled for a folder, use AI, monitor hidden folders, upload data, or perform destructive operations against original files. Watcher history is best-effort and is not a perfect audit log.
 
 ## Download
 
-Prebuilt Windows installers are published on the [Releases](https://github.com/Jelly-RayTian/Chronicle/releases) page from matching version tags.
+Prebuilt Windows installers are published on the [Releases](https://github.com/Jelly-RayTian/Chronicle/releases) page from matching version tags. Windows installers are currently unsigned; verify the published SHA-256 digest and expect an unknown-publisher warning.
 
 ## Screenshots
 
-> Screenshots will be added to the release assets. Placeholder sections below show the intended views.
+These images are captured from the real Windows application using an isolated Chronicle profile and a temporary user-authorized fixture folder.
 
-|                     Timeline                      |                     Indexed folders                     |                     Settings                      |
-| :-----------------------------------------------: | :-----------------------------------------------------: | :-----------------------------------------------: |
-| ![Timeline](docs/assets/screenshots/timeline.png) | ![Indexed folders](docs/assets/screenshots/folders.png) | ![Settings](docs/assets/screenshots/settings.png) |
+|                     Timeline                      |                     Indexed folders                     |
+| :-----------------------------------------------: | :-----------------------------------------------------: |
+| ![Timeline](docs/assets/screenshots/timeline.png) | ![Indexed folders](docs/assets/screenshots/folders.png) |
+
+|                    Search                     |                     Settings                      |
+| :-------------------------------------------: | :-----------------------------------------------: |
+| ![Search](docs/assets/screenshots/search.png) | ![Settings](docs/assets/screenshots/settings.png) |
 
 ## Privacy guarantees
 
-- Chronicle has no analytics or telemetry.
-- Chronicle has no cloud storage and does not upload paths or metadata.
+- No analytics, telemetry, cloud storage, or metadata upload.
 - Scanning is limited to folders the user explicitly selects.
-- Monitoring is disabled by default and can only be enabled per indexed folder.
-- Metadata scanning never opens file contents and skips symbolic links by default.
-- Content indexing is disabled by default and is opt-in per folder with extension, size, and exclusion controls.
-- Watcher batches recheck metadata only and validate raw events against authorized roots.
+- Monitoring is disabled by default and enabled per folder only.
+- Metadata scanning never opens file contents and skips symbolic links.
+- Content indexing is disabled by default and bounded by extension, size, and exclusions.
 - Failed, cancelled, or interrupted scans preserve the last complete snapshot.
-- Clearing Chronicle data or removing an indexed folder will never delete original files.
-- Diagnostics exports contain counts and status only; no file paths, names, or contents are included.
+- Removing an index or uninstalling Chronicle never deletes original files.
+- Diagnostics contain no file paths, names, or contents.
 
-See [Privacy](docs/privacy.md) and [Security](SECURITY.md).
+See [Privacy](docs/privacy.md), [Security](SECURITY.md), and the [v2.0.0 audit](docs/privacy-security-audit.md).
 
 ## Prerequisites
 
-- Windows 11 with WebView2 Runtime
+- Windows 11 x64 with WebView2 Runtime
 - Node.js 24 and npm 11
-- Rust stable 1.96 or newer with the `x86_64-pc-windows-msvc` target
+- Rust stable 1.96 or newer with `x86_64-pc-windows-msvc`
 - Visual Studio 2022 Build Tools with Desktop development with C++ and a Windows SDK
 
 ## Development
@@ -68,7 +64,7 @@ npm install
 npm run tauri dev
 ```
 
-Frontend checks:
+Required frontend checks:
 
 ```powershell
 npm run format:check
@@ -78,7 +74,7 @@ npm test
 npm run build
 ```
 
-Rust checks:
+Required Rust checks:
 
 ```powershell
 cargo fmt --manifest-path src-tauri/Cargo.toml --check
@@ -87,17 +83,18 @@ cargo test --manifest-path src-tauri/Cargo.toml
 cargo check --manifest-path src-tauri/Cargo.toml
 ```
 
-Build the Windows installer:
+Build and validate the Windows installer:
 
 ```powershell
 npm run tauri build
+./scripts/validate-windows-artifacts.ps1
 ```
 
-## Architecture at a glance
+## Architecture
 
-React renders the interface and calls one typed client. Tauri commands validate the boundary and delegate to Rust services. Rust owns SQLite, migrations, platform contracts, task contracts, and filesystem watching. React components never contain SQL or filesystem logic.
+React renders the interface and calls one typed client. Thin Tauri commands delegate to Rust services. Rust owns SQLite, migrations, filesystem boundaries, scanning, watching, and platform actions. React components contain no SQL or filesystem logic.
 
-Read [Architecture](docs/architecture.md) and [Database](docs/database.md) for details.
+Read [Architecture](docs/architecture.md) and [Database](docs/database.md).
 
 ## Documentation
 
@@ -106,13 +103,19 @@ Read [Architecture](docs/architecture.md) and [Database](docs/database.md) for d
 - [Database](docs/database.md)
 - [Event model](docs/event-model.md)
 - [Privacy](docs/privacy.md)
-- [Platform limitations](docs/platform-limitations.md)
+- [Security](SECURITY.md)
 - [Known limitations](docs/known-limitations.md)
 - [Roadmap](docs/roadmap.md)
 - [Testing](docs/testing.md)
 - [Performance benchmarks](docs/benchmarks.md)
-- [v1.4.0 release notes](docs/release-notes-v1.4.0.md)
+- [Release process](docs/releasing.md)
+- [Smoke-test checklist](docs/smoke-test-checklist.md)
+- [v2.0.0 smoke-test results](docs/smoke-test-results-v2.0.0.md)
+- [Accessibility review](docs/accessibility.md)
+- [Privacy and security audit](docs/privacy-security-audit.md)
+- [Portfolio overview](docs/portfolio.md)
+- [v2.0.0 release notes](docs/release-notes-v2.0.0.md)
 
 ## Project status
 
-Chronicle is at v1.4.0. The database and timeline are intentionally empty until the user authorizes a folder and completes a scan or explicitly enables monitoring; no fake production data is created.
+Chronicle is prepared at v2.0.0. The database and Timeline remain empty until the user authorizes a folder and completes a scan or enables monitoring; production components never create fake data.

@@ -38,6 +38,9 @@ export const AppShell = ({ activePage, onNavigate, children }: AppShellProps) =>
 
   return (
     <div className="app-shell">
+      <a className="skip-link" href="#main-content">
+        {t('app.skipToContent')}
+      </a>
       <aside className="sidebar">
         <header className="brand-block">
           <div className="brand-mark" aria-hidden="true">
@@ -84,7 +87,7 @@ export const AppShell = ({ activePage, onNavigate, children }: AppShellProps) =>
           ) : null}
         </section>
       </aside>
-      <main className="main-content">
+      <main id="main-content" className="main-content" tabIndex={-1}>
         {databaseStatus.state === 'error' ? (
           <ErrorState error={databaseStatus.error} onRetry={reload} />
         ) : null}

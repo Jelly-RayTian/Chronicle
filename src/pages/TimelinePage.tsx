@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useAppData } from '../app/AppDataContext';
 import { EmptyState, ErrorState, LoadingState } from '../components/states/ContentState';
+import { useDialogFocus } from '../hooks/useDialogFocus';
 import type {
   ApplicationError,
   FileEvent,
@@ -183,6 +184,7 @@ export const TimelinePage = () => {
     setPathHistory([]);
     setActionError(null);
   };
+  const detailDialogRef = useDialogFocus<HTMLElement>(selected !== null, closeDetails);
 
   const reset = () => {
     setSearch('');
@@ -533,10 +535,12 @@ export const TimelinePage = () => {
       {selected && (
         <div className="detail-backdrop" role="presentation" onMouseDown={closeDetails}>
           <aside
+            ref={detailDialogRef}
             className="file-detail"
             role="dialog"
             aria-modal="true"
             aria-labelledby="file-detail-title"
+            tabIndex={-1}
             onMouseDown={(e) => e.stopPropagation()}
           >
             <header>

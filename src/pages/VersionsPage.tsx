@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useAppData } from '../app/AppDataContext';
 import { EmptyState, ErrorState, LoadingState } from '../components/states/ContentState';
+import { useDialogFocus } from '../hooks/useDialogFocus';
 import type {
   ApplicationError,
   FileRecord,
@@ -117,6 +118,7 @@ export const VersionsPage = () => {
     setMergeSources(new Set());
     setAddFileId('');
   };
+  const detailDialogRef = useDialogFocus<HTMLElement>(detail !== null, closeDetail);
 
   const selectFamily = (id: number) => {
     setSelectedId(id);
@@ -235,10 +237,12 @@ export const VersionsPage = () => {
       {selectedId != null ? (
         <div className="detail-backdrop" role="presentation" onMouseDown={closeDetail}>
           <aside
+            ref={detailDialogRef}
             className="file-detail versions-detail"
             role="dialog"
             aria-modal="true"
             aria-labelledby="version-detail-title"
+            tabIndex={-1}
             onMouseDown={(event) => event.stopPropagation()}
           >
             {loadingDetail ? <LoadingState /> : null}
@@ -331,6 +335,7 @@ export const VersionsPage = () => {
                         value={renameValue}
                         onChange={(event) => setRenameValue(event.target.value)}
                         placeholder={t('versions.renamePlaceholder')}
+                        aria-label={t('versions.renamePlaceholder')}
                       />
                       <button
                         type="button"
@@ -359,6 +364,7 @@ export const VersionsPage = () => {
                       value={splitName}
                       onChange={(event) => setSplitName(event.target.value)}
                       placeholder={t('versions.splitNamePlaceholder')}
+                      aria-label={t('versions.splitNamePlaceholder')}
                     />
                     <button
                       type="button"
@@ -388,6 +394,7 @@ export const VersionsPage = () => {
                     <p className="version-hint">{t('versions.mergeHint')}</p>
                     <select
                       value={mergeTarget ?? ''}
+                      aria-label={t('versions.mergeTarget')}
                       onChange={(event) =>
                         setMergeTarget(event.target.value ? Number(event.target.value) : null)
                       }
@@ -449,6 +456,7 @@ export const VersionsPage = () => {
                     <div className="version-inline">
                       <select
                         value={addFileId}
+                        aria-label={t('versions.selectFile')}
                         onChange={(event) =>
                           setAddFileId(event.target.value ? Number(event.target.value) : '')
                         }

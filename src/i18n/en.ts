@@ -2,6 +2,7 @@ export const en = {
   app: {
     name: 'Chronicle',
     tagline: 'Your local file activity, remembered in context.',
+    skipToContent: 'Skip to main content',
   },
   navigation: {
     timeline: 'Timeline',

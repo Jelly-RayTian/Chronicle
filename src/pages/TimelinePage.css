@@ -58,7 +58,7 @@
   border-radius: var(--radius-container);
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(220px, 2fr) repeat(6, minmax(108px, 1fr));
+  grid-template-columns: minmax(180px, 2fr) repeat(3, minmax(108px, 1fr));
   padding: 14px;
 }
 .timeline-filters label {
@@ -80,6 +80,9 @@
   bottom: 10px;
   left: 11px;
   position: absolute;
+}
+.search-control {
+  grid-column: span 2;
 }
 .search-control input {
   padding-left: 36px;
@@ -293,9 +296,6 @@
 @media (max-width: 1050px) {
   .timeline-filters {
     grid-template-columns: repeat(3, 1fr);
-  }
-  .search-control {
-    grid-column: span 2;
   }
 }
 @media (max-width: 720px) {

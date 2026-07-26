@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   release:
-    name: Build Windows release
+    name: Validate and publish Windows release
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,13 +23,34 @@ jobs:
         with:
           workspaces: src-tauri
       - run: npm ci
-      - id: build
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: npm run release:validate -- --tag ${{ github.ref_name }}
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+      - run: cargo test --manifest-path src-tauri/Cargo.toml
+      - run: cargo check --manifest-path src-tauri/Cargo.toml
+      - run: npm run tauri build -- --target x86_64-pc-windows-msvc
+      - shell: pwsh
+        run: ./scripts/validate-windows-artifacts.ps1 -InstallerGlob "src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe"
+      - uses: actions/upload-artifact@v4
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'Chronicle ${{ github.ref_name }}'
-          releaseBody: 'See [CHANGELOG.md](../CHANGELOG.md) for details.'
-          includeDebug: false
-          args: '--target x86_64-pc-windows-msvc'
+          name: chronicle-${{ github.ref_name }}-windows
+          if-no-files-found: error
+          path: |
+            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
+            dist/release/SHA256SUMS.txt
+      - name: Create GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $installer = Get-ChildItem "src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe" -File
+          gh release create "$env:GITHUB_REF_NAME" `
+            --title "Chronicle $env:GITHUB_REF_NAME" `
+            --notes-file "docs/release-notes-$env:GITHUB_REF_NAME.md" `
+            $installer.FullName `
+            "dist/release/SHA256SUMS.txt"

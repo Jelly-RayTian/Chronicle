@@ -1,6 +1,11 @@
 # Known limitations
 
-This document summarizes the current known limitations of Chronicle v1.4.0. It is honest about what the current release does not guarantee so users and contributors can set the right expectations.
+This document summarizes the current known limitations of Chronicle v2.0.0. It is honest about what the current release does not guarantee so users and contributors can set the right expectations.
+
+## Distribution
+
+- Windows installers are not code-signed. Windows may show a SmartScreen or unknown-publisher warning. Verify the SHA-256 value published beside the installer before running it.
+- The GitHub Release workflow and installer smoke test target Windows 11 x64. There is no MSIX, Microsoft Store, macOS, Linux, ARM64, or auto-update distribution in v2.0.0.
 
 ## Platform support
 
@@ -54,7 +59,7 @@ This document summarizes the current known limitations of Chronicle v1.4.0. It i
 ## Performance and scale
 
 - The published benchmark is a single-machine sample, not a latency guarantee. Antivirus, filesystem, storage, permissions, directory shape, and background load can materially change results.
-- 50,000 files are included as an optional practical fixture. Larger trees are not certified by v1.4.0.
+- 50,000 files are included as an optional practical fixture. Larger trees are not certified by v2.0.0.
 - Peak resident memory is not reported because the current dependency set has no trustworthy cross-platform measurement path. SQLite file bytes are reported as a reproducible storage proxy.
 - Watcher storms above 4,096 unique pending paths stop monitoring rather than risking an unbounded queue. Run a complete metadata scan before resuming.
 

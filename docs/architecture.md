@@ -13,6 +13,10 @@ React UI
 
 React owns presentation state, debounced filters, timeline grouping, pagination controls, version-family review UI, and details panels. It does not enumerate files, construct SQL, infer events, compute version-family similarity, or invoke operating-system processes directly. `src/lib/tauri/client.ts` is the only native invocation boundary.
 
+Keyboard accessibility remains a presentation concern: React owns semantic
+labels, visible focus, skip navigation, and modal focus containment. These
+behaviors do not bypass the typed native client or change filesystem authority.
+
 Rust resolves every scan from an indexed-folder id stored in SQLite. The scanner reads directory entries and metadata inside that authorized root without following symbolic links. Database code owns staging, reconciliation, immutable event persistence, filters, histories, and transaction boundaries. Platform code validates a present path against its authorized root before an explicit open or reveal request.
 
 ## v1.4 performance boundaries

@@ -144,6 +144,7 @@ export const ProjectsPage = () => {
             value={newName}
             onChange={(event) => setNewName(event.target.value)}
             placeholder={t('projects.createPlaceholder')}
+            aria-label={t('projects.createPlaceholder')}
             className="input"
           />
           <input
@@ -151,6 +152,7 @@ export const ProjectsPage = () => {
             value={newDescription}
             onChange={(event) => setNewDescription(event.target.value)}
             placeholder={t('projects.descriptionPlaceholder')}
+            aria-label={t('projects.descriptionPlaceholder')}
             className="input"
           />
           <div className="file-picker">
@@ -460,6 +462,7 @@ const ProjectDetails = ({
               type="text"
               value={name}
               onChange={(event) => setName(event.target.value)}
+              aria-label={t('projects.createPlaceholder')}
               className="input"
             />
             <input
@@ -467,6 +470,7 @@ const ProjectDetails = ({
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               placeholder={t('projects.descriptionPlaceholder')}
+              aria-label={t('projects.descriptionPlaceholder')}
               className="input"
             />
             <button

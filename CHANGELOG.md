@@ -4,6 +4,26 @@ All notable changes to Chronicle are documented here. The format follows Keep a 
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-07-27
+
+### Added
+
+- Version/tag and Windows artifact validation, including SHA-256 generation and explicit Authenticode status reporting.
+- Public release, smoke-test, accessibility, privacy/security audit, portfolio, demo GIF, and known-limitations documentation.
+- Real application screenshots captured with an isolated profile and temporary authorized files.
+- Skip-to-content navigation and keyboard focus containment/restoration for release-critical dialogs.
+
+### Changed
+
+- Aligned npm, Cargo, and Tauri manifests at v2.0.0.
+- Made tag releases run every frontend and Rust quality gate before building and publishing.
+- Updated public presentation and release documentation.
+
+### Security
+
+- Re-audited telemetry/network absence, explicit-root enforcement, opt-in content indexing, sanitized diagnostics, and original-file non-mutation.
+- Release artifacts now fail validation when missing, malformed, unexpectedly small, or in an invalid signature state.
+
 ## [1.4.0] - 2026-07-25
 
 ### Added

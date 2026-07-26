@@ -2,6 +2,14 @@
 
 Chronicle helps people return to local files through the time and context around their work. It is a privacy-first desktop history of meaningful metadata changes inside folders the user explicitly authorizes.
 
+## v2.0.0 acceptance
+
+Public release preparation does not expand what Chronicle observes. It makes
+the existing product independently understandable and releasable: versions and
+tags align, Windows artifacts are validated, release notes and limitations are
+complete, keyboard and focus behavior are reviewed, and privacy/data-safety
+claims have code and test evidence.
+
 ## v1.4.0 acceptance
 
 Performance claims must be reproducible with generated temporary fixtures and

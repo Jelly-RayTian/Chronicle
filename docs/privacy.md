@@ -12,6 +12,7 @@ Chronicle is local, consent-based, and metadata-only.
 - Content indexing is opt-in per folder, restricted by extension and file size, and respects exclusion patterns. The default is 1 MiB per file and the hard maximum is 8 MiB. Indexed text is stored only in the local SQLite database.
 - Symbolic links are not followed.
 - No analytics, telemetry, cloud storage, metadata upload, behavior monitoring, or productivity scoring exists.
+- The v2.0.0 review searched the frontend, Rust core, Tauri capabilities, diagnostics model, dependencies, and workflows for hidden networking or monitoring paths; see the [privacy and security audit](privacy-security-audit.md).
 - Cancelled, failed, interrupted, or partial scans preserve the last complete snapshot.
 - Chronicle never deletes, moves, renames, or writes original files.
 - A deletion event is only a historical observation after a complete scan; it is not a filesystem action.

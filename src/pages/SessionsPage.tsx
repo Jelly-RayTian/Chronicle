@@ -341,6 +341,7 @@ const SessionDetails = ({ sessionId, onBack }: { sessionId: number; onBack: () =
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               placeholder={t('sessions.titlePlaceholder')}
+              aria-label={t('sessions.titlePlaceholder')}
               className="input"
             />
             <select
@@ -348,6 +349,7 @@ const SessionDetails = ({ sessionId, onBack }: { sessionId: number; onBack: () =
               onChange={(event) =>
                 setProjectId(event.target.value ? Number(event.target.value) : null)
               }
+              aria-label={t('sessions.assignProject')}
               className="select"
             >
               <option value="">{t('sessions.noProject')}</option>

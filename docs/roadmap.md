@@ -89,6 +89,18 @@ Milestone 7 does not add automatic cloud indexing, AI search, binary-file indexi
 v1.4.0 does not add a speculative storage rewrite, new tracking source, analytics,
 cloud services, productivity metrics, or unrelated features.
 
+## v2.0.0: Public release
+
+- Aligned release metadata and exact-tag validation.
+- Windows NSIS build, PE/size/signature validation, and published SHA-256 digest.
+- Full quality gates before GitHub Release creation.
+- Real screenshots, release notes, smoke checklist, accessibility review, privacy/security audit, and portfolio overview.
+- Visible keyboard focus, skip navigation, meaningful control names, and dialog keyboard behavior.
+
+v2.0.0 adds no AI, cloud sync, telemetry, hidden monitoring, or major product
+feature. The next product milestone remains intentionally undecided until
+public-release feedback is reviewed.
+
 ## Later exploration
 
 Any additional identity inference, higher-level grouping, or new extraction formats require a separate milestone, privacy review, and tests.
