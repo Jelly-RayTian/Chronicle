@@ -1650,7 +1650,7 @@ impl Database {
                             }
                         },
                     );
-                    let event_type = event_type.or(Some("created").filter(|_| existing.is_none()));
+                    let event_type = event_type.or(existing.is_none().then_some("created"));
                     transaction.execute(
                         "INSERT INTO files (
                             indexed_folder_id, normalized_path, name, parent_path, extension,
