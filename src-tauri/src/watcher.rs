@@ -391,7 +391,9 @@ fn normalize_raw_event_path(root: &Path, raw_path: &Path) -> Result<String, Chro
     {
         return Err(ChronicleError::UnauthorizedEventPath);
     }
-    let normalized_root = PathBuf::from(path_to_string(root)?);
+    let normalized_root = PathBuf::from(path_to_string(
+        &fs::canonicalize(root).map_err(classify_io_error)?,
+    )?);
     if let Ok(canonical) = fs::canonicalize(raw_path) {
         let normalized = PathBuf::from(path_to_string(&canonical)?);
         if !normalized.starts_with(&normalized_root) {

@@ -134,9 +134,15 @@ pub(crate) fn traverse(
     if root_metadata.file_type().is_symlink() || !root_metadata.is_dir() {
         return Err(ChronicleError::Inaccessible);
     }
+    // Windows temporary directories and user-selected folders can sit behind a
+    // junction or another reparse point. Compare canonical paths on both sides
+    // so an authorized directory is not mistaken for an escaped path.
+    let canonical_root = PathBuf::from(path_to_string(
+        &fs::canonicalize(root).map_err(classify_io_error)?,
+    )?);
 
     let mut counts = ScanCounts::default();
-    let mut stack = vec![root.to_path_buf()];
+    let mut stack = vec![canonical_root.clone()];
     let mut batch = Vec::with_capacity(BATCH_SIZE);
 
     while let Some(directory) = stack.pop() {
@@ -144,7 +150,7 @@ pub(crate) fn traverse(
         let canonical_directory = PathBuf::from(path_to_string(
             &fs::canonicalize(&directory).map_err(classify_io_error)?,
         )?);
-        if !canonical_directory.starts_with(root) {
+        if !canonical_directory.starts_with(&canonical_root) {
             counts.warnings += 1;
             continue;
         }
